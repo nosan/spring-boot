@@ -43,6 +43,7 @@
 	<suppress files="OutputCaptureRuleTests" checks="SpringJUnit5" />
 	<suppress files="RestClientTestWithComponentIntegrationTests" checks="SpringJUnit5" />
 	<suppress files="SampleJUnitVintageApplicationTests" checks="SpringJUnit5" />
+	<suppress files="MapToPropertyClassRuleTests" checks="SpringJUnit5" />
 	<suppress files="[\\/]spring-boot-docs[\\/]" checks="SpringJavadoc" message="\@since" />
 	<suppress files="[\\/]spring-boot-smoke-tests[\\/]" checks="SpringJavadoc" message="\@since" />
 </suppressions>
