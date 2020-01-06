@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -62,11 +63,15 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Import(Neo4jBookmarkManagementConfiguration.class)
 public class Neo4jDataAutoConfiguration {
 
+	static final String NEO4J_SESSION_FACTORY = "neo4jSessionFactory";
+
+	static final String SESSION_FACTORY = "sessionFactory";
+
 	@Bean
 	@ConditionalOnMissingBean(PlatformTransactionManager.class)
-	public Neo4jTransactionManager transactionManager(SessionFactory sessionFactory,
+	public Neo4jTransactionManager transactionManager(SessionFactory neo4jSessionFactory,
 			ObjectProvider<TransactionManagerCustomizers> transactionManagerCustomizers) {
-		Neo4jTransactionManager transactionManager = new Neo4jTransactionManager(sessionFactory);
+		Neo4jTransactionManager transactionManager = new Neo4jTransactionManager(neo4jSessionFactory);
 		transactionManagerCustomizers.ifAvailable((customizers) -> customizers.customize(transactionManager));
 		return transactionManager;
 	}
@@ -77,14 +82,27 @@ public class Neo4jDataAutoConfiguration {
 
 		@Bean
 		@ConditionalOnMissingBean
-		org.neo4j.ogm.config.Configuration configuration(Neo4jProperties properties) {
+		org.neo4j.ogm.config.Configuration neo4jConfiguration(Neo4jProperties properties) {
 			return properties.createConfiguration();
 		}
 
-		@Bean
-		SessionFactory sessionFactory(org.neo4j.ogm.config.Configuration configuration, BeanFactory beanFactory,
-				ObjectProvider<EventListener> eventListeners) {
-			SessionFactory sessionFactory = new SessionFactory(configuration, getPackagesToScan(beanFactory));
+		@Bean(name = { NEO4J_SESSION_FACTORY, SESSION_FACTORY })
+		@ConditionalOnMissingBean(name = SESSION_FACTORY)
+		SessionFactory neo4jLegacySessionFactory(org.neo4j.ogm.config.Configuration neo4jConfiguration,
+				BeanFactory beanFactory, ObjectProvider<EventListener> eventListeners) {
+			return getSessionFactory(neo4jConfiguration, beanFactory, eventListeners);
+		}
+
+		@Bean(NEO4J_SESSION_FACTORY)
+		@ConditionalOnBean(name = SESSION_FACTORY)
+		SessionFactory neo4jSessionFactory(org.neo4j.ogm.config.Configuration neo4jConfiguration,
+				BeanFactory beanFactory, ObjectProvider<EventListener> eventListeners) {
+			return getSessionFactory(neo4jConfiguration, beanFactory, eventListeners);
+		}
+
+		private SessionFactory getSessionFactory(org.neo4j.ogm.config.Configuration neo4jConfiguration,
+				BeanFactory beanFactory, ObjectProvider<EventListener> eventListeners) {
+			SessionFactory sessionFactory = new SessionFactory(neo4jConfiguration, getPackagesToScan(beanFactory));
 			eventListeners.orderedStream().forEach(sessionFactory::register);
 			return sessionFactory;
 		}
