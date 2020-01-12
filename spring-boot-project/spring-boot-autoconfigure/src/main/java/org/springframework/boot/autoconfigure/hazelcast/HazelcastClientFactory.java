@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,9 @@
 package org.springframework.boot.autoconfigure.hazelcast;
 
 import java.io.IOException;
-import java.net.URL;
 
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
-import com.hazelcast.client.config.XmlClientConfigBuilder;
-import com.hazelcast.client.config.YamlClientConfigBuilder;
 import com.hazelcast.core.HazelcastInstance;
 
 import org.springframework.core.io.Resource;
@@ -43,9 +40,11 @@ public class HazelcastClientFactory {
 	 * Create a {@link HazelcastClientFactory} for the specified configuration location.
 	 * @param clientConfigLocation the location of the configuration file
 	 * @throws IOException if the configuration location could not be read
+	 * @deprecated since 2.3.0 with no replacement
 	 */
+	@Deprecated
 	public HazelcastClientFactory(Resource clientConfigLocation) throws IOException {
-		this.clientConfig = getClientConfig(clientConfigLocation);
+		this.clientConfig = new HazelcastClientConfigFactory(clientConfigLocation).getClientConfig();
 	}
 
 	/**
@@ -55,15 +54,6 @@ public class HazelcastClientFactory {
 	public HazelcastClientFactory(ClientConfig clientConfig) {
 		Assert.notNull(clientConfig, "ClientConfig must not be null");
 		this.clientConfig = clientConfig;
-	}
-
-	private ClientConfig getClientConfig(Resource clientConfigLocation) throws IOException {
-		URL configUrl = clientConfigLocation.getURL();
-		String configFileName = configUrl.getPath();
-		if (configFileName.endsWith(".yaml")) {
-			return new YamlClientConfigBuilder(configUrl).build();
-		}
-		return new XmlClientConfigBuilder(configUrl).build();
 	}
 
 	/**

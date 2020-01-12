@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnSingleCandidate;
@@ -49,12 +50,21 @@ class HazelcastClientConfiguration {
 	static class HazelcastClientConfigFileConfiguration {
 
 		@Bean
-		HazelcastInstance hazelcastInstance(HazelcastProperties properties) throws IOException {
+		HazelcastInstance hazelcastInstance(HazelcastProperties properties,
+				ObjectProvider<HazelcastClientConfigCustomizer> hazelcastClientConfigCustomizers) throws IOException {
+			ClientConfig clientConfig = getClientConfig(properties, hazelcastClientConfigCustomizers);
+			return new HazelcastClientFactory(clientConfig).getHazelcastInstance();
+		}
+
+		private static ClientConfig getClientConfig(HazelcastProperties properties,
+				ObjectProvider<HazelcastClientConfigCustomizer> hazelcastClientConfigCustomizers) throws IOException {
+			HazelcastClientConfigCustomizer[] customizers = hazelcastClientConfigCustomizers.orderedStream()
+					.toArray(HazelcastClientConfigCustomizer[]::new);
 			Resource config = properties.resolveConfigLocation();
 			if (config != null) {
-				return new HazelcastClientFactory(config).getHazelcastInstance();
+				return new HazelcastClientConfigFactory(config, customizers).getClientConfig();
 			}
-			return HazelcastClient.newHazelcastClient();
+			return new HazelcastClientConfigFactory(customizers).getClientConfig();
 		}
 
 	}
@@ -78,7 +88,8 @@ class HazelcastClientConfiguration {
 
 		ConfigAvailableCondition() {
 			super(CONFIG_SYSTEM_PROPERTY, "file:./hazelcast-client.xml", "classpath:/hazelcast-client.xml",
-					"file:./hazelcast-client.yaml", "classpath:/hazelcast-client.yaml");
+					"file:./hazelcast-client.yaml", "file:./hazelcast-client.yml", "classpath:/hazelcast-client.yaml",
+					"classpath:/hazelcast-client.yml");
 		}
 
 	}
