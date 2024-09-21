@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 
+import org.springframework.beans.factory.config.Scope;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.context.ApplicationListener;
@@ -45,18 +46,36 @@ class RestartScopeInitializerTests {
 	void restartScope() {
 		createCount = new AtomicInteger();
 		refreshCount = new AtomicInteger();
-		ConfigurableApplicationContext context = runApplication();
+		ConfigurableApplicationContext context = runApplication(Config.class);
 		context.close();
-		context = runApplication();
+		context = runApplication(Config.class);
 		context.close();
 		assertThat(createCount.get()).isOne();
 		assertThat(refreshCount.get()).isEqualTo(2);
 	}
 
-	private ConfigurableApplicationContext runApplication() {
-		SpringApplication application = new SpringApplication(Config.class);
+	@Test
+	void restartScopeClassNameHasBeenChangedTestcontainersPropertySource() {
+		try (ConfigurableApplicationContext context = runApplication(EmptyConfig.class)) {
+			Scope scope = context.getBeanFactory().getRegisteredScope("restart");
+			assertThat(scope).isNotNull()
+				.extracting(Scope::getClass)
+				.extracting(Class::getName)
+				.describedAs("Restart scope class name has been changed. "
+						+ "TestcontainersPropertySource depends on this name.")
+				.isEqualTo("org.springframework.boot.devtools.restart.RestartScopeInitializer$RestartScope");
+		}
+	}
+
+	private ConfigurableApplicationContext runApplication(Class<?>... classes) {
+		SpringApplication application = new SpringApplication(classes);
 		application.setWebApplicationType(WebApplicationType.NONE);
 		return application.run();
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class EmptyConfig {
+
 	}
 
 	@Configuration(proxyBeanMethods = false)

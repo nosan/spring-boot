@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.boot.devtools.restart.RestartScopeInitializer;
 import org.springframework.boot.testcontainers.lifecycle.BeforeTestcontainerUsedEvent;
 import org.springframework.boot.testcontainers.properties.TestcontainersPropertySource.EventPublisherRegistrar;
 import org.springframework.context.ApplicationEvent;
@@ -50,6 +51,23 @@ class TestcontainersPropertySourceTests {
 	TestcontainersPropertySourceTests() {
 		((DefaultListableBeanFactory) this.context.getBeanFactory()).setAllowBeanDefinitionOverriding(false);
 		this.context.setEnvironment(this.environment);
+		TestcontainersPropertySource.clearRestartScopedValues();
+	}
+
+	@Test
+	void restartScopedPropertiesSharedAcrossDifferentPropertySources() {
+		DynamicPropertyRegistry registry = TestcontainersPropertySource.attach(this.environment);
+		RestartScopeInitializer.RestartScope.add(registry, "restart", () -> "scope");
+		registry.add("spring", () -> "boot");
+
+		assertThat(this.environment.getProperty("restart")).isEqualTo("scope");
+		assertThat(this.environment.getProperty("spring")).isEqualTo("boot");
+
+		this.environment.getPropertySources().remove(TestcontainersPropertySource.NAME);
+
+		TestcontainersPropertySource.attach(this.environment);
+		assertThat(this.environment.getProperty("restart")).isEqualTo("scope");
+		assertThat(this.environment.getProperty("spring")).isNull();
 	}
 
 	@Test

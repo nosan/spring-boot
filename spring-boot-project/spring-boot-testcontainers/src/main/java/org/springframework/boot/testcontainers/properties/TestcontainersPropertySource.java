@@ -52,6 +52,11 @@ import org.springframework.util.function.SupplierUtils;
  */
 public class TestcontainersPropertySource extends MapPropertySource {
 
+	private static final String RESTART_SCOPE = "org.springframework.boot.devtools.restart.RestartScopeInitializer$RestartScope";
+
+	private static final Map<String, Supplier<Object>> restartScopedValues = Collections
+		.synchronizedMap(new LinkedHashMap<>());
+
 	static final String NAME = "testcontainersPropertySource";
 
 	private final DynamicPropertyRegistry registry;
@@ -59,7 +64,7 @@ public class TestcontainersPropertySource extends MapPropertySource {
 	private final Set<ApplicationEventPublisher> eventPublishers = new CopyOnWriteArraySet<>();
 
 	TestcontainersPropertySource() {
-		this(Collections.synchronizedMap(new LinkedHashMap<>()));
+		this(Collections.synchronizedMap(new LinkedHashMap<>(restartScopedValues)));
 	}
 
 	private TestcontainersPropertySource(Map<String, Supplier<Object>> valueSuppliers) {
@@ -68,6 +73,9 @@ public class TestcontainersPropertySource extends MapPropertySource {
 			Assert.hasText(name, "'name' must not be null or blank");
 			Assert.notNull(valueSupplier, "'valueSupplier' must not be null");
 			valueSuppliers.put(name, valueSupplier);
+			if (isRestartScoped()) {
+				restartScopedValues.put(name, valueSupplier);
+			}
 		};
 	}
 
@@ -123,6 +131,15 @@ public class TestcontainersPropertySource extends MapPropertySource {
 		Assert.state(propertySource instanceof TestcontainersPropertySource,
 				"Incorrect TestcontainersPropertySource type registered");
 		return ((TestcontainersPropertySource) propertySource);
+	}
+
+	private static boolean isRestartScoped() {
+		return StackWalker.getInstance()
+			.walk((stream) -> stream.anyMatch((frame) -> RESTART_SCOPE.equals(frame.getClassName())));
+	}
+
+	static void clearRestartScopedValues() {
+		restartScopedValues.clear();
 	}
 
 	/**
