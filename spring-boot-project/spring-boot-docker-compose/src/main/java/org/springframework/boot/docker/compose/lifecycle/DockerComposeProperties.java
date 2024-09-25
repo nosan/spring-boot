@@ -52,6 +52,11 @@ public class DockerComposeProperties {
 	private final List<File> file = new ArrayList<>();
 
 	/**
+	 * Docker compose services to bind.
+	 */
+	private final Set<String> services = new LinkedHashSet<>();
+
+	/**
 	 * Docker compose lifecycle management.
 	 */
 	private LifecycleManagement lifecycleManagement = LifecycleManagement.START_AND_STOP;
@@ -90,6 +95,10 @@ public class DockerComposeProperties {
 
 	public List<File> getFile() {
 		return this.file;
+	}
+
+	public Set<String> getServices() {
+		return this.services;
 	}
 
 	public LifecycleManagement getLifecycleManagement() {

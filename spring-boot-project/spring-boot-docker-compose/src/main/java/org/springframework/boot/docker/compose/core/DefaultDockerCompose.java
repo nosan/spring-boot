@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -41,9 +42,16 @@ class DefaultDockerCompose implements DockerCompose {
 
 	private final DockerHost hostname;
 
+	private final Set<String> services;
+
 	DefaultDockerCompose(DockerCli cli, String host) {
+		this(cli, host, Collections.emptySet());
+	}
+
+	DefaultDockerCompose(DockerCli cli, String host, Set<String> services) {
 		this.cli = cli;
 		this.hostname = DockerHost.get(host, () -> cli.run(new DockerCliCommand.Context()));
+		this.services = (services != null) ? services : Collections.emptySet();
 	}
 
 	@Override
@@ -53,7 +61,7 @@ class DefaultDockerCompose implements DockerCompose {
 
 	@Override
 	public void up(LogLevel logLevel, List<String> arguments) {
-		this.cli.run(new DockerCliCommand.ComposeUp(logLevel, arguments));
+		this.cli.run(new DockerCliCommand.ComposeUp(logLevel, arguments, this.services));
 	}
 
 	@Override
@@ -63,7 +71,7 @@ class DefaultDockerCompose implements DockerCompose {
 
 	@Override
 	public void down(Duration timeout, List<String> arguments) {
-		this.cli.run(new DockerCliCommand.ComposeDown(timeout, arguments));
+		this.cli.run(new DockerCliCommand.ComposeDown(timeout, arguments, this.services));
 	}
 
 	@Override
@@ -73,7 +81,7 @@ class DefaultDockerCompose implements DockerCompose {
 
 	@Override
 	public void start(LogLevel logLevel, List<String> arguments) {
-		this.cli.run(new DockerCliCommand.ComposeStart(logLevel, arguments));
+		this.cli.run(new DockerCliCommand.ComposeStart(logLevel, arguments, this.services));
 	}
 
 	@Override
@@ -83,12 +91,12 @@ class DefaultDockerCompose implements DockerCompose {
 
 	@Override
 	public void stop(Duration timeout, List<String> arguments) {
-		this.cli.run(new DockerCliCommand.ComposeStop(timeout, arguments));
+		this.cli.run(new DockerCliCommand.ComposeStop(timeout, arguments, this.services));
 	}
 
 	@Override
 	public boolean hasDefinedServices() {
-		return !this.cli.run(new DockerCliCommand.ComposeConfig()).services().isEmpty();
+		return !this.cli.run(new DockerCliCommand.ComposeConfig(this.services)).services().isEmpty();
 	}
 
 	@Override
@@ -129,7 +137,7 @@ class DefaultDockerCompose implements DockerCompose {
 	}
 
 	private List<DockerCliComposePsResponse> runComposePs() {
-		return this.cli.run(new DockerCliCommand.ComposePs());
+		return this.cli.run(new DockerCliCommand.ComposePs(this.services));
 	}
 
 	private boolean isRunning(DockerCliComposePsResponse psResponse) {

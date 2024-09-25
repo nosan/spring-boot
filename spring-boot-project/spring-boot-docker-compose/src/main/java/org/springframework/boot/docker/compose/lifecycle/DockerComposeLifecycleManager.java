@@ -48,6 +48,7 @@ import org.springframework.util.CollectionUtils;
  * @author Andy Wilkinson
  * @author Phillip Webb
  * @author Scott Frederick
+ * @author Dmytro Nosan
  * @see DockerComposeListener
  */
 class DockerComposeLifecycleManager {
@@ -109,7 +110,8 @@ class DockerComposeLifecycleManager {
 		}
 		DockerComposeFile composeFile = getComposeFile();
 		Set<String> activeProfiles = this.properties.getProfiles().getActive();
-		DockerCompose dockerCompose = getDockerCompose(composeFile, activeProfiles);
+		Set<String> services = this.properties.getServices();
+		DockerCompose dockerCompose = getDockerCompose(composeFile, activeProfiles, services);
 		if (!dockerCompose.hasDefinedServices()) {
 			logger.warn(LogMessage.format("No services defined in Docker Compose file %s with active profiles %s",
 					composeFile, activeProfiles));
@@ -159,8 +161,9 @@ class DockerComposeLifecycleManager {
 		return composeFile;
 	}
 
-	protected DockerCompose getDockerCompose(DockerComposeFile composeFile, Set<String> activeProfiles) {
-		return DockerCompose.get(composeFile, this.properties.getHost(), activeProfiles);
+	protected DockerCompose getDockerCompose(DockerComposeFile composeFile, Set<String> activeProfiles,
+			Set<String> services) {
+		return DockerCompose.get(composeFile, this.properties.getHost(), activeProfiles, services);
 	}
 
 	private boolean isIgnored(RunningService service) {

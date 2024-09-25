@@ -75,6 +75,8 @@ class DockerComposeLifecycleManagerTests {
 
 	private Set<String> activeProfiles;
 
+	private Set<String> services;
+
 	private GenericApplicationContext applicationContext;
 
 	private TestSpringApplicationShutdownHandlers shutdownHandlers;
@@ -359,6 +361,24 @@ class DockerComposeLifecycleManagerTests {
 	}
 
 	@Test
+	void startGetsDockerComposeWithSpecifiedServices() {
+		this.properties.getServices().add("redis");
+		setUpRunningServices();
+		this.lifecycleManager.start();
+		assertThat(this.services).containsExactly("redis");
+	}
+
+	@Test
+	void startGetsDockerComposeWithSpecifiedServicesAndActiveProfiles() {
+		this.properties.getServices().add("redis");
+		this.properties.getProfiles().setActive(Set.of("redis-profile"));
+		setUpRunningServices();
+		this.lifecycleManager.start();
+		assertThat(this.services).containsExactly("redis");
+		assertThat(this.activeProfiles).containsExactly("redis-profile");
+	}
+
+	@Test
 	void startPublishesEvent() {
 		EventCapturingListener listener = new EventCapturingListener();
 		this.eventListeners.add(listener);
@@ -519,8 +539,10 @@ class DockerComposeLifecycleManagerTests {
 		}
 
 		@Override
-		protected DockerCompose getDockerCompose(DockerComposeFile composeFile, Set<String> activeProfiles) {
+		protected DockerCompose getDockerCompose(DockerComposeFile composeFile, Set<String> activeProfiles,
+				Set<String> services) {
 			DockerComposeLifecycleManagerTests.this.activeProfiles = activeProfiles;
+			DockerComposeLifecycleManagerTests.this.services = services;
 			return DockerComposeLifecycleManagerTests.this.dockerCompose;
 		}
 

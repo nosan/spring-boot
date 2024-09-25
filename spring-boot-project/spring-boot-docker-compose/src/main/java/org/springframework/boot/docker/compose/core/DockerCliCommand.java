@@ -19,8 +19,10 @@ package org.springframework.boot.docker.compose.core;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.boot.logging.LogLevel;
 
@@ -31,6 +33,7 @@ import org.springframework.boot.logging.LogLevel;
  * @author Moritz Halbritter
  * @author Andy Wilkinson
  * @author Phillip Webb
+ * @author Dmytro Nosan
  */
 abstract sealed class DockerCliCommand<R> {
 
@@ -140,7 +143,19 @@ abstract sealed class DockerCliCommand<R> {
 	static final class ComposeConfig extends DockerCliCommand<DockerCliComposeConfigResponse> {
 
 		ComposeConfig() {
-			super(Type.DOCKER_COMPOSE, DockerCliComposeConfigResponse.class, false, "config", "--format=json");
+			this(Collections.emptySet());
+		}
+
+		ComposeConfig(Set<String> services) {
+			super(Type.DOCKER_COMPOSE, DockerCliComposeConfigResponse.class, false, getCommand(services));
+		}
+
+		private static String[] getCommand(Set<String> services) {
+			List<String> command = new ArrayList<>();
+			command.add("config");
+			command.add("--format=json");
+			command.addAll(services);
+			return command.toArray(String[]::new);
 		}
 
 	}
@@ -151,7 +166,19 @@ abstract sealed class DockerCliCommand<R> {
 	static final class ComposePs extends DockerCliCommand<List<DockerCliComposePsResponse>> {
 
 		ComposePs() {
-			super(Type.DOCKER_COMPOSE, DockerCliComposePsResponse.class, true, "ps", "--format=json");
+			this(Collections.emptySet());
+		}
+
+		ComposePs(Set<String> services) {
+			super(Type.DOCKER_COMPOSE, DockerCliComposePsResponse.class, true, getCommand(services));
+		}
+
+		private static String[] getCommand(Set<String> services) {
+			List<String> command = new ArrayList<>();
+			command.add("ps");
+			command.add("--format=json");
+			command.addAll(services);
+			return command.toArray(String[]::new);
 		}
 
 	}
@@ -162,16 +189,21 @@ abstract sealed class DockerCliCommand<R> {
 	static final class ComposeUp extends DockerCliCommand<Void> {
 
 		ComposeUp(LogLevel logLevel, List<String> arguments) {
-			super(Type.DOCKER_COMPOSE, logLevel, Void.class, false, getCommand(arguments));
+			this(logLevel, arguments, Collections.emptySet());
 		}
 
-		private static String[] getCommand(List<String> arguments) {
+		ComposeUp(LogLevel logLevel, List<String> arguments, Set<String> services) {
+			super(Type.DOCKER_COMPOSE, logLevel, Void.class, false, getCommand(arguments, services));
+		}
+
+		private static String[] getCommand(List<String> arguments, Set<String> services) {
 			List<String> result = new ArrayList<>();
 			result.add("up");
 			result.add("--no-color");
 			result.add("--detach");
 			result.add("--wait");
 			result.addAll(arguments);
+			result.addAll(services);
 			return result.toArray(String[]::new);
 		}
 
@@ -183,15 +215,20 @@ abstract sealed class DockerCliCommand<R> {
 	static final class ComposeDown extends DockerCliCommand<Void> {
 
 		ComposeDown(Duration timeout, List<String> arguments) {
-			super(Type.DOCKER_COMPOSE, Void.class, false, getCommand(timeout, arguments));
+			this(timeout, arguments, Collections.emptySet());
 		}
 
-		private static String[] getCommand(Duration timeout, List<String> arguments) {
+		ComposeDown(Duration timeout, List<String> arguments, Set<String> services) {
+			super(Type.DOCKER_COMPOSE, Void.class, false, getCommand(timeout, arguments, services));
+		}
+
+		private static String[] getCommand(Duration timeout, List<String> arguments, Set<String> services) {
 			List<String> command = new ArrayList<>();
 			command.add("down");
 			command.add("--timeout");
 			command.add(Long.toString(timeout.toSeconds()));
 			command.addAll(arguments);
+			command.addAll(services);
 			return command.toArray(String[]::new);
 		}
 
@@ -203,13 +240,18 @@ abstract sealed class DockerCliCommand<R> {
 	static final class ComposeStart extends DockerCliCommand<Void> {
 
 		ComposeStart(LogLevel logLevel, List<String> arguments) {
-			super(Type.DOCKER_COMPOSE, logLevel, Void.class, false, getCommand(arguments));
+			this(logLevel, arguments, Collections.emptySet());
 		}
 
-		private static String[] getCommand(List<String> arguments) {
+		ComposeStart(LogLevel logLevel, List<String> arguments, Set<String> services) {
+			super(Type.DOCKER_COMPOSE, logLevel, Void.class, false, getCommand(arguments, services));
+		}
+
+		private static String[] getCommand(List<String> arguments, Set<String> services) {
 			List<String> command = new ArrayList<>();
 			command.add("start");
 			command.addAll(arguments);
+			command.addAll(services);
 			return command.toArray(String[]::new);
 		}
 
@@ -221,15 +263,20 @@ abstract sealed class DockerCliCommand<R> {
 	static final class ComposeStop extends DockerCliCommand<Void> {
 
 		ComposeStop(Duration timeout, List<String> arguments) {
-			super(Type.DOCKER_COMPOSE, Void.class, false, getCommand(timeout, arguments));
+			this(timeout, arguments, Collections.emptySet());
 		}
 
-		private static String[] getCommand(Duration timeout, List<String> arguments) {
+		ComposeStop(Duration timeout, List<String> arguments, Set<String> services) {
+			super(Type.DOCKER_COMPOSE, Void.class, false, getCommand(timeout, arguments, services));
+		}
+
+		private static String[] getCommand(Duration timeout, List<String> arguments, Set<String> services) {
 			List<String> command = new ArrayList<>();
 			command.add("stop");
 			command.add("--timeout");
 			command.add(Long.toString(timeout.toSeconds()));
 			command.addAll(arguments);
+			command.addAll(services);
 			return command.toArray(String[]::new);
 		}
 

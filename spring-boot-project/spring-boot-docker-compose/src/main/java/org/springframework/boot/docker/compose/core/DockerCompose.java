@@ -28,6 +28,7 @@ import org.springframework.boot.logging.LogLevel;
  * @author Moritz Halbritter
  * @author Andy Wilkinson
  * @author Phillip Webb
+ * @author Dmytro Nosan
  * @since 3.1.0
  */
 public interface DockerCompose {
@@ -127,6 +128,22 @@ public interface DockerCompose {
 	static DockerCompose get(DockerComposeFile file, String hostname, Set<String> activeProfiles) {
 		DockerCli cli = new DockerCli(null, file, activeProfiles);
 		return new DefaultDockerCompose(cli, hostname);
+	}
+
+	/**
+	 * Factory method used to create a {@link DockerCompose} instance.
+	 * @param file the Docker Compose file
+	 * @param hostname the hostname used for services or {@code null} if the hostname
+	 * should be deduced
+	 * @param activeProfiles a set of the profiles that should be activated
+	 * @param services a set of the services to bind
+	 * @return a {@link DockerCompose} instance
+	 * @since 3.4.0
+	 */
+	static DockerCompose get(DockerComposeFile file, String hostname, Set<String> activeProfiles,
+			Set<String> services) {
+		DockerCli cli = new DockerCli(null, file, activeProfiles);
+		return new DefaultDockerCompose(cli, hostname, services);
 	}
 
 }

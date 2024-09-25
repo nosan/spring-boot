@@ -17,6 +17,7 @@
 package org.springframework.boot.docker.compose.core;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -52,7 +53,7 @@ class DockerCliCommandTests {
 
 	@Test
 	void composeConfig() {
-		DockerCliCommand<?> command = new DockerCliCommand.ComposeConfig();
+		DockerCliCommand<?> command = new DockerCliCommand.ComposeConfig(Collections.emptySet());
 		assertThat(command.getType()).isEqualTo(DockerCliCommand.Type.DOCKER_COMPOSE);
 		assertThat(command.getCommand()).containsExactly("config", "--format=json");
 		assertThat(command.deserialize("{}")).isInstanceOf(DockerCliComposeConfigResponse.class);
@@ -60,7 +61,7 @@ class DockerCliCommandTests {
 
 	@Test
 	void composePs() {
-		DockerCliCommand<?> command = new DockerCliCommand.ComposePs();
+		DockerCliCommand<?> command = new DockerCliCommand.ComposePs(Collections.emptySet());
 		assertThat(command.getType()).isEqualTo(DockerCliCommand.Type.DOCKER_COMPOSE);
 		assertThat(command.getCommand()).containsExactly("ps", "--format=json");
 		assertThat(command.deserialize("[]")).isInstanceOf(List.class);
@@ -68,7 +69,8 @@ class DockerCliCommandTests {
 
 	@Test
 	void composeUp() {
-		DockerCliCommand<?> command = new DockerCliCommand.ComposeUp(LogLevel.INFO, List.of("--renew-anon-volumes"));
+		DockerCliCommand<?> command = new DockerCliCommand.ComposeUp(LogLevel.INFO, List.of("--renew-anon-volumes"),
+				Collections.emptySet());
 		assertThat(command.getType()).isEqualTo(DockerCliCommand.Type.DOCKER_COMPOSE);
 		assertThat(command.getLogLevel()).isEqualTo(LogLevel.INFO);
 		assertThat(command.getCommand()).containsExactly("up", "--no-color", "--detach", "--wait",
@@ -79,7 +81,7 @@ class DockerCliCommandTests {
 	@Test
 	void composeDown() {
 		DockerCliCommand<?> command = new DockerCliCommand.ComposeDown(Duration.ofSeconds(1),
-				List.of("--remove-orphans"));
+				List.of("--remove-orphans"), Collections.emptySet());
 		assertThat(command.getType()).isEqualTo(DockerCliCommand.Type.DOCKER_COMPOSE);
 		assertThat(command.getCommand()).containsExactly("down", "--timeout", "1", "--remove-orphans");
 		assertThat(command.deserialize("[]")).isNull();
@@ -87,7 +89,8 @@ class DockerCliCommandTests {
 
 	@Test
 	void composeStart() {
-		DockerCliCommand<?> command = new DockerCliCommand.ComposeStart(LogLevel.INFO, List.of("--dry-run"));
+		DockerCliCommand<?> command = new DockerCliCommand.ComposeStart(LogLevel.INFO, List.of("--dry-run"),
+				Collections.emptySet());
 		assertThat(command.getType()).isEqualTo(DockerCliCommand.Type.DOCKER_COMPOSE);
 		assertThat(command.getLogLevel()).isEqualTo(LogLevel.INFO);
 		assertThat(command.getCommand()).containsExactly("start", "--dry-run");
@@ -96,7 +99,8 @@ class DockerCliCommandTests {
 
 	@Test
 	void composeStop() {
-		DockerCliCommand<?> command = new DockerCliCommand.ComposeStop(Duration.ofSeconds(1), List.of("--dry-run"));
+		DockerCliCommand<?> command = new DockerCliCommand.ComposeStop(Duration.ofSeconds(1), List.of("--dry-run"),
+				Collections.emptySet());
 		assertThat(command.getType()).isEqualTo(DockerCliCommand.Type.DOCKER_COMPOSE);
 		assertThat(command.getCommand()).containsExactly("stop", "--timeout", "1", "--dry-run");
 		assertThat(command.deserialize("[]")).isNull();

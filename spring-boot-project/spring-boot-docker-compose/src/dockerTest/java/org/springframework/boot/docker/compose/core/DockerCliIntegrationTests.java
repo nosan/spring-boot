@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -50,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Moritz Halbritter
  * @author Andy Wilkinson
  * @author Phillip Webb
+ * @author Dmytro Nosan
  */
 @DisabledIfDockerUnavailable
 @DisabledIfProcessUnavailable({ "docker", "compose" })
@@ -104,6 +106,67 @@ class DockerCliIntegrationTests {
 	}
 
 	@Test
+	void runLifecycleWithSpecifiedServices() throws IOException {
+		File composeFile = createComposeFile("multiple-redis-compose.yaml");
+		Set<String> services = Set.of("redis", "redis3");
+		DockerCli cli = new DockerCli(null, DockerComposeFile.of(composeFile), Collections.emptySet());
+		try {
+			// Verify that no services are running (this is a fresh compose project)
+			List<DockerCliComposePsResponse> ps = cli.run(new ComposePs(Collections.emptySet()));
+			assertThat(ps).isEmpty();
+			// List the config and verify that only redis, redis3 are there.
+			DockerCliComposeConfigResponse config = cli.run(new ComposeConfig(services));
+			assertThat(config.services()).containsOnlyKeys("redis", "redis3");
+			// List the config without services should return all redis services.
+			config = cli.run(new ComposeConfig());
+			assertThat(config.services()).containsOnlyKeys("redis", "redis1", "redis2", "redis3");
+
+			// Run up redis, redis3
+			cli.run(new ComposeUp(LogLevel.INFO, Collections.emptyList(), services));
+			// Run ps with specified services and use IDs to run inspect.
+			ps = cli.run(new ComposePs(services));
+			assertThat(ps).hasSize(2);
+			List<String> ids = ps.stream().map(DockerCliComposePsResponse::id).toList();
+			List<DockerCliInspectResponse> inspect = cli.run(new Inspect(ids));
+			assertThat(inspect).hasSize(2);
+			assertThat(inspect).allMatch(response -> ids.stream().anyMatch(id -> response.id().startsWith(id)));
+
+			// Run ps should also return only two services.
+			ps = cli.run(new ComposePs());
+			assertThat(ps).hasSize(2);
+
+			// Run stop on redis, then run ps and verify that only one service stopped.
+			cli.run(new ComposeStop(Duration.ofSeconds(10), Collections.emptyList(), Set.of("redis")));
+			ps = cli.run(new ComposePs());
+			assertThat(ps).hasSize(1);
+			// Run stop on redis3, then run ps and verify that nothing is left.
+			cli.run(new ComposeStop(Duration.ofSeconds(10), Collections.emptyList(), Set.of("redis3")));
+			ps = cli.run(new ComposePs());
+			assertThat(ps).isEmpty();
+			// Run start, verify services are there, then run down and verify they are
+			// gone
+			cli.run(new ComposeStart(LogLevel.INFO, Collections.emptyList(), services));
+			ps = cli.run(new ComposePs(services));
+			assertThat(ps).hasSize(2);
+			// Run ps should also return only two services.
+			ps = cli.run(new ComposePs());
+			assertThat(ps).hasSize(2);
+			// Run down on redis, then run ps and verify that only one service is down.
+			cli.run(new ComposeDown(Duration.ofSeconds(10), Collections.emptyList(), Set.of("redis")));
+			ps = cli.run(new ComposePs());
+			assertThat(ps).hasSize(1);
+			// Run down on redis3, then run ps and verify that verify they are gone
+			cli.run(new ComposeDown(Duration.ofSeconds(10), Collections.emptyList(), Set.of("redis3")));
+			ps = cli.run(new ComposePs());
+			assertThat(ps).isEmpty();
+		}
+		finally {
+			// Clean up in any case
+			quietComposeDown(cli);
+		}
+	}
+
+	@Test
 	void shouldWorkWithMultipleComposeFiles() throws IOException {
 		List<File> composeFiles = createComposeFiles();
 		DockerCli cli = new DockerCli(null, DockerComposeFile.of(composeFiles), Collections.emptySet());
@@ -123,9 +186,36 @@ class DockerCliIntegrationTests {
 		}
 	}
 
+	@Test
+	void shouldWithMultipleComposeFilesWithSpecifiedServices() throws IOException {
+		List<File> composeFiles = createComposeFiles();
+		Set<String> services = Set.of("redis2");
+		DockerCli cli = new DockerCli(null, DockerComposeFile.of(composeFiles), Collections.emptySet());
+		try {
+			// List the config and verify that only redis2 is returned.
+			DockerCliComposeConfigResponse config = cli.run(new ComposeConfig(services));
+			assertThat(config.services()).containsOnlyKeys("redis2");
+			// List the config and verify that both redis are there
+			config = cli.run(new ComposeConfig(Collections.emptySet()));
+			assertThat(config.services()).containsOnlyKeys("redis1", "redis2");
+			// Run up
+			cli.run(new ComposeUp(LogLevel.INFO, Collections.emptyList(), services));
+			// Run ps and use id to run inspect on the id
+			List<DockerCliComposePsResponse> ps = cli.run(new ComposePs(services));
+			assertThat(ps).hasSize(1);
+			// Run ps should return also one service.
+			ps = cli.run(new ComposePs());
+			assertThat(ps).hasSize(1);
+		}
+		finally {
+			// Clean up in any case
+			quietComposeDown(cli);
+		}
+	}
+
 	private static void quietComposeDown(DockerCli cli) {
 		try {
-			cli.run(new ComposeDown(Duration.ZERO, Collections.emptyList()));
+			cli.run(new ComposeDown(Duration.ZERO, Collections.emptyList(), Collections.emptySet()));
 		}
 		catch (RuntimeException ex) {
 			// Ignore
