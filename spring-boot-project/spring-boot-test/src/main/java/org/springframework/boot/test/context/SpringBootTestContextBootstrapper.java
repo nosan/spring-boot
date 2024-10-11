@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import org.springframework.core.annotation.MergedAnnotation;
 import org.springframework.core.annotation.MergedAnnotations;
 import org.springframework.core.annotation.MergedAnnotations.SearchStrategy;
 import org.springframework.core.env.Environment;
+import org.springframework.core.io.support.PropertySourceDescriptor;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.ContextConfigurationAttributes;
 import org.springframework.test.context.ContextCustomizer;
@@ -374,10 +375,29 @@ public class SpringBootTestContextBootstrapper extends DefaultTestContextBootstr
 			Class<?>[] classes, String[] propertySourceProperties) {
 		Set<ContextCustomizer> contextCustomizers = new LinkedHashSet<>(mergedConfig.getContextCustomizers());
 		contextCustomizers.add(new SpringBootTestAnnotation(mergedConfig.getTestClass()));
+		List<PropertySourceDescriptor> propertySourceDescriptors = getPropertySourceDescriptors(
+				mergedConfig.getPropertySourceDescriptors());
 		return new MergedContextConfiguration(mergedConfig.getTestClass(), mergedConfig.getLocations(), classes,
 				mergedConfig.getContextInitializerClasses(), mergedConfig.getActiveProfiles(),
-				mergedConfig.getPropertySourceDescriptors(), propertySourceProperties, contextCustomizers,
+				propertySourceDescriptors, propertySourceProperties, contextCustomizers,
 				mergedConfig.getContextLoader(), getCacheAwareContextLoaderDelegate(), mergedConfig.getParent());
+	}
+
+	private List<PropertySourceDescriptor> getPropertySourceDescriptors(
+			List<PropertySourceDescriptor> propertySourceDescriptors) {
+		List<PropertySourceDescriptor> result = new ArrayList<>();
+		for (PropertySourceDescriptor propertySourceDescriptor : propertySourceDescriptors) {
+			if (propertySourceDescriptor.propertySourceFactory() != null) {
+				result.add(propertySourceDescriptor);
+			}
+			else {
+				result.add(new PropertySourceDescriptor(propertySourceDescriptor.locations(),
+						propertySourceDescriptor.ignoreResourceNotFound(), propertySourceDescriptor.name(),
+						PropertySourceLoaderPropertySourceFactory.class, propertySourceDescriptor.encoding()));
+			}
+		}
+		return result;
+
 	}
 
 }
