@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -67,6 +68,9 @@ class MessageSourceMessageInterpolatorIntegrationTests {
 
 	@NotNull(message = "\\\\{null}")
 	private String escapeEscape;
+
+	@Positive(message = "Value ${validatedValue} must be positive")
+	private int elExpression;
 
 	@Test
 	void defaultMessage() {
@@ -114,6 +118,11 @@ class MessageSourceMessageInterpolatorIntegrationTests {
 		assertThat(validate("escapeEscape")).containsExactly("\\must not be null");
 	}
 
+	@Test
+	void elExpression() {
+		assertThat(validate("elExpression")).containsExactly("Value 0 must be positive");
+	}
+
 	private List<String> validate(String property) {
 		return withEnglishLocale(() -> {
 			Validator validator = buildValidator();
@@ -129,6 +138,8 @@ class MessageSourceMessageInterpolatorIntegrationTests {
 	private static Validator buildValidator() {
 		Locale locale = LocaleContextHolder.getLocale();
 		StaticMessageSource messageSource = new StaticMessageSource();
+		messageSource.setUseCodeAsDefaultMessage(true);
+		messageSource.addMessage("validatedValue", locale, "Validated Value should be evaluated via EL Expression");
 		messageSource.addMessage("blank", locale, "{null} or {jakarta.validation.constraints.NotBlank.message}");
 		messageSource.addMessage("null", locale, "{jakarta.validation.constraints.NotNull.message}");
 		messageSource.addMessage("recursion", locale, "{middle}");

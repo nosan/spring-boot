@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,6 +99,9 @@ class MessageSourceMessageInterpolatorTests {
 		assertThat(this.interpolator.interpolate("{foo}\\", this.context)).isEqualTo("fooValue\\");
 		assertThat(this.interpolator.interpolate("{bar}", this.context)).isEqualTo("\\{foo}");
 		assertThat(this.interpolator.interpolate("{bazz\\}}", this.context)).isEqualTo("bazzValue");
+		assertThat(this.interpolator.interpolate("\\${foo}", this.context)).isEqualTo("\\$fooValue");
+		assertThat(this.interpolator.interpolate("${foo\\}", this.context)).isEqualTo("${foo\\}");
+		assertThat(this.interpolator.interpolate("\\\\${foo}", this.context)).isEqualTo("\\\\${foo}");
 	}
 
 	@Test
@@ -108,6 +111,12 @@ class MessageSourceMessageInterpolatorTests {
 		this.messageSource.addMessage("c", Locale.getDefault(), "{a}");
 		assertThatIllegalArgumentException().isThrownBy(() -> this.interpolator.interpolate("{a}", this.context))
 			.withMessage("Circular reference '{a -> b -> c -> a}'");
+	}
+
+	@Test
+	void interpolateWhenElExpressionShouldIgnore() {
+		this.messageSource.addMessage("foo", Locale.getDefault(), "fooValue");
+		assertThat(this.interpolator.interpolate("${foo}", this.context)).isEqualTo("${foo}");
 	}
 
 	private static final class IdentityMessageInterpolator implements MessageInterpolator {
