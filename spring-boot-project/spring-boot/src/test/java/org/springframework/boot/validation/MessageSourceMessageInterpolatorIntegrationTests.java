@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import java.util.function.Supplier;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -67,6 +69,12 @@ class MessageSourceMessageInterpolatorIntegrationTests {
 
 	@NotNull(message = "\\\\{null}")
 	private String escapeEscape;
+
+	@Positive(message = "Value ${validatedValue} must be positive")
+	private int elExpression = -100;
+
+	@Size(min = 2, max = 10, message = "{attributes}")
+	private String attributes = "Bean Validation Attributes";
 
 	@Test
 	void defaultMessage() {
@@ -114,6 +122,16 @@ class MessageSourceMessageInterpolatorIntegrationTests {
 		assertThat(validate("escapeEscape")).containsExactly("\\must not be null");
 	}
 
+	@Test
+	void elExpression() {
+		assertThat(validate("elExpression")).containsExactly("Value -100 must be positive");
+	}
+
+	@Test
+	void beanValidationAttributes() {
+		assertThat(validate("attributes")).containsExactly("The value between 2 and 10");
+	}
+
 	private List<String> validate(String property) {
 		return withEnglishLocale(() -> {
 			Validator validator = buildValidator();
@@ -129,6 +147,11 @@ class MessageSourceMessageInterpolatorIntegrationTests {
 	private static Validator buildValidator() {
 		Locale locale = LocaleContextHolder.getLocale();
 		StaticMessageSource messageSource = new StaticMessageSource();
+		messageSource.setUseCodeAsDefaultMessage(true);
+		messageSource.addMessage("validatedValue", locale, "${validatedValue} should be ignored");
+		messageSource.addMessage("min", locale, "{min} should be ignored");
+		messageSource.addMessage("max", locale, "{max} should be ignored");
+		messageSource.addMessage("attributes", locale, "The value between {min} and {max}");
 		messageSource.addMessage("blank", locale, "{null} or {jakarta.validation.constraints.NotBlank.message}");
 		messageSource.addMessage("null", locale, "{jakarta.validation.constraints.NotNull.message}");
 		messageSource.addMessage("recursion", locale, "{middle}");

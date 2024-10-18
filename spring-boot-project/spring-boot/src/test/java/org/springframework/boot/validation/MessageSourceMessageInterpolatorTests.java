@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,20 @@
 
 package org.springframework.boot.validation;
 
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.MessageInterpolator.Context;
+import jakarta.validation.metadata.ConstraintDescriptor;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.context.support.StaticMessageSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -39,10 +43,19 @@ class MessageSourceMessageInterpolatorTests {
 
 	private final Context context = mock(Context.class);
 
+	private final Map<String, Object> attributes = new LinkedHashMap<>();
+
 	private final StaticMessageSource messageSource = new StaticMessageSource();
 
 	private final MessageSourceMessageInterpolator interpolator = new MessageSourceMessageInterpolator(
 			this.messageSource, new IdentityMessageInterpolator());
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	MessageSourceMessageInterpolatorTests() {
+		ConstraintDescriptor constraintDescriptor = mock(ConstraintDescriptor.class);
+		given(constraintDescriptor.getAttributes()).willReturn(this.attributes);
+		given(this.context.getConstraintDescriptor()).willReturn(constraintDescriptor);
+	}
 
 	@Test
 	void interpolateShouldReplaceParameters() {
@@ -62,8 +75,8 @@ class MessageSourceMessageInterpolatorTests {
 	void interpolateWhenParametersAreUnknownUsingCodeAsDefaultShouldLeaveThemUnchanged() {
 		this.messageSource.setUseCodeAsDefaultMessage(true);
 		this.messageSource.addMessage("top", Locale.getDefault(), "{child}+{child}");
-		assertThat(this.interpolator.interpolate("{foo}{top}{bar}", this.context))
-			.isEqualTo("{foo}{child}+{child}{bar}");
+		this.messageSource.addMessage("foo", Locale.getDefault(), "foo");
+		assertThat(this.interpolator.interpolate("{foo}{top}{bar}", this.context)).isEqualTo("foo{child}+{child}{bar}");
 	}
 
 	@Test
@@ -99,6 +112,9 @@ class MessageSourceMessageInterpolatorTests {
 		assertThat(this.interpolator.interpolate("{foo}\\", this.context)).isEqualTo("fooValue\\");
 		assertThat(this.interpolator.interpolate("{bar}", this.context)).isEqualTo("\\{foo}");
 		assertThat(this.interpolator.interpolate("{bazz\\}}", this.context)).isEqualTo("bazzValue");
+		assertThat(this.interpolator.interpolate("\\${foo}", this.context)).isEqualTo("\\$fooValue");
+		assertThat(this.interpolator.interpolate("${foo\\}", this.context)).isEqualTo("${foo\\}");
+		assertThat(this.interpolator.interpolate("\\\\${foo}", this.context)).isEqualTo("\\\\${foo}");
 	}
 
 	@Test
@@ -108,6 +124,22 @@ class MessageSourceMessageInterpolatorTests {
 		this.messageSource.addMessage("c", Locale.getDefault(), "{a}");
 		assertThatIllegalArgumentException().isThrownBy(() -> this.interpolator.interpolate("{a}", this.context))
 			.withMessage("Circular reference '{a -> b -> c -> a}'");
+	}
+
+	@Test
+	void interpolateWhenElExpressionShouldIgnore() {
+		this.messageSource.addMessage("foo", Locale.getDefault(), "fooValue");
+		assertThat(this.interpolator.interpolate("${foo}", this.context)).isEqualTo("${foo}");
+	}
+
+	@Test
+	void interpolateWhenParametersAreBeanValidationAttributesShouldIgnore() {
+		this.messageSource.addMessage("min", Locale.getDefault(), "minValue");
+		this.messageSource.addMessage("max", Locale.getDefault(), "maxValue");
+		this.attributes.put("min", 1);
+		this.attributes.put("max", 50);
+		assertThat(this.interpolator.interpolate("The value between {min} and {max}", this.context))
+			.isEqualTo("The value between {min} and {max}");
 	}
 
 	private static final class IdentityMessageInterpolator implements MessageInterpolator {
