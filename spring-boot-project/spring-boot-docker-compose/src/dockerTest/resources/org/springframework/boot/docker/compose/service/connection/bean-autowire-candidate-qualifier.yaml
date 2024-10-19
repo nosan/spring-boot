@@ -1,0 +1,15 @@
+services:
+  redis:
+    image: '{imageName}'
+    ports:
+      - '6379'
+    labels:
+      "org.springframework.boot.bean.name-prefix": "redis"
+  redis1:
+    image: '{imageName}'
+    ports:
+      - '6379'
+    labels:
+      "org.springframework.boot.bean.name-prefix": "redis1"
+      "org.springframework.boot.bean.autowire-candidate": false
+      "org.springframework.boot.bean.qualifier": test

@@ -16,23 +16,16 @@
 
 package org.springframework.boot.docker.compose.service.connection;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.config.BeanDefinitionHolder;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.RootBeanDefinition;
-import org.springframework.boot.autoconfigure.container.ContainerImageMetadata;
 import org.springframework.boot.autoconfigure.service.connection.ConnectionDetails;
 import org.springframework.boot.autoconfigure.service.connection.ConnectionDetailsFactories;
 import org.springframework.boot.docker.compose.core.RunningService;
 import org.springframework.boot.docker.compose.lifecycle.DockerComposeServicesReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.StringUtils;
 
 /**
  * {@link ApplicationListener} that listens for an {@link DockerComposeServicesReadyEvent}
@@ -75,24 +68,12 @@ class DockerComposeServiceConnectionsApplicationListener
 		}
 	}
 
-	@SuppressWarnings("unchecked")
-	private <T> void register(BeanDefinitionRegistry registry, RunningService runningService,
+	private void register(BeanDefinitionRegistry registry, RunningService runningService,
 			Class<?> connectionDetailsType, ConnectionDetails connectionDetails) {
-		ContainerImageMetadata containerMetadata = new ContainerImageMetadata(runningService.image().toString());
-		String beanName = getBeanName(runningService, connectionDetailsType);
-		Class<T> beanType = (Class<T>) connectionDetails.getClass();
-		Supplier<T> beanSupplier = () -> (T) connectionDetails;
-		RootBeanDefinition beanDefinition = new RootBeanDefinition(beanType, beanSupplier);
-		containerMetadata.addTo(beanDefinition);
-		registry.registerBeanDefinition(beanName, beanDefinition);
-	}
-
-	private String getBeanName(RunningService runningService, Class<?> connectionDetailsType) {
-		List<String> parts = new ArrayList<>();
-		parts.add(ClassUtils.getShortNameAsProperty(connectionDetailsType));
-		parts.add("for");
-		parts.addAll(Arrays.asList(runningService.name().split("-")));
-		return StringUtils.uncapitalize(parts.stream().map(StringUtils::capitalize).collect(Collectors.joining()));
+		DockerComposeBeanDefinitionSupplier supplier = new DockerComposeBeanDefinitionSupplier(runningService,
+				connectionDetails, connectionDetailsType);
+		BeanDefinitionHolder holder = supplier.get();
+		registry.registerBeanDefinition(holder.getBeanName(), holder.getBeanDefinition());
 	}
 
 }
