@@ -17,6 +17,8 @@
 package org.springframework.boot.docker.compose.service.connection.test;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.lang.reflect.Parameter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -39,8 +41,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-
-import static org.assertj.core.api.Assertions.fail;
+import org.springframework.util.ClassUtils;
 
 /**
  * {@link Extension} for {@link DockerComposeTest @DockerComposeTest}.
@@ -87,9 +88,9 @@ class DockerComposeTestExtension implements BeforeTestExecutionCallback, AfterTe
 			return transformedComposeFile;
 		}
 		catch (IOException ex) {
-			fail("Error transforming Docker compose file '" + composeFileResource + "': " + ex.getMessage());
+			throw new UncheckedIOException(
+					"Error transforming Docker compose file '" + composeFileResource + "': " + ex.getMessage(), ex);
 		}
-		return null;
 	}
 
 	private SpringApplication prepareApplication(Path transformedComposeFile) {
@@ -121,14 +122,23 @@ class DockerComposeTestExtension implements BeforeTestExecutionCallback, AfterTe
 	private void deleteComposeFile(Store store) throws IOException {
 		Path composeFile = store.get(STORE_KEY_COMPOSE_FILE, Path.class);
 		if (composeFile != null) {
-			Files.delete(composeFile);
+			Files.deleteIfExists(composeFile);
 		}
 	}
 
 	@Override
 	public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
 			throws ParameterResolutionException {
-		return true;
+		ConfigurableApplicationContext applicationContext = extensionContext.getStore(NAMESPACE)
+			.get(STORE_KEY_APPLICATION_CONTEXT, ConfigurableApplicationContext.class);
+		if (applicationContext == null) {
+			return false;
+		}
+		Class<?> type = parameterContext.getParameter().getType();
+		if (ClassUtils.isAssignableValue(type, applicationContext)) {
+			return true;
+		}
+		return !applicationContext.getBeansOfType(type).isEmpty();
 	}
 
 	@Override
@@ -136,8 +146,15 @@ class DockerComposeTestExtension implements BeforeTestExecutionCallback, AfterTe
 			throws ParameterResolutionException {
 		ConfigurableApplicationContext applicationContext = extensionContext.getStore(NAMESPACE)
 			.get(STORE_KEY_APPLICATION_CONTEXT, ConfigurableApplicationContext.class);
-		return (applicationContext != null) ? applicationContext.getBean(parameterContext.getParameter().getType())
-				: null;
+		if (applicationContext == null) {
+			throw new ParameterResolutionException("No Application Context available");
+		}
+		Parameter parameter = parameterContext.getParameter();
+		Class<?> type = parameter.getType();
+		if (ClassUtils.isAssignableValue(type, applicationContext)) {
+			return applicationContext;
+		}
+		return applicationContext.getBean(type);
 	}
 
 	@Configuration(proxyBeanMethods = false)
