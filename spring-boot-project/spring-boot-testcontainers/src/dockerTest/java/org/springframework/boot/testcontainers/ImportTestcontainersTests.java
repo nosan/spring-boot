@@ -24,16 +24,20 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import org.springframework.aot.test.generate.TestGenerationContext;
 import org.springframework.boot.testcontainers.beans.TestcontainerBeanDefinition;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
+import org.springframework.boot.testcontainers.lifecycle.TestcontainersLifecycleApplicationContextInitializer;
 import org.springframework.boot.testsupport.container.DisabledIfDockerUnavailable;
 import org.springframework.boot.testsupport.container.TestImage;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.aot.ApplicationContextAotGenerator;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 
 /**
  * Tests for {@link ImportTestcontainers}.
@@ -120,6 +124,16 @@ class ImportTestcontainersTests {
 			.isThrownBy(() -> this.applicationContext = new AnnotationConfigApplicationContext(
 					BadArgsDynamicPropertySourceMethod.class))
 			.withMessage("@DynamicPropertySource method 'containerProperties' must be static");
+	}
+
+	@Test
+	void importTestcontainersDoNotCauseAotProcessingToFail() {
+		this.applicationContext = new AnnotationConfigApplicationContext();
+		this.applicationContext.register(ImportWithValue.class);
+		new TestcontainersLifecycleApplicationContextInitializer().initialize(this.applicationContext);
+		TestGenerationContext generationContext = new TestGenerationContext();
+		assertThatNoException().isThrownBy(() -> new ApplicationContextAotGenerator()
+			.processAheadOfTime(this.applicationContext, generationContext));
 	}
 
 	@ImportTestcontainers

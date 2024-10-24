@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import java.lang.reflect.Field;
 
 import org.testcontainers.containers.Container;
 
+import org.springframework.beans.factory.aot.BeanRegistrationExcludeFilter;
+import org.springframework.beans.factory.support.RegisteredBean;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.boot.testcontainers.beans.TestcontainerBeanDefinition;
 import org.springframework.core.annotation.MergedAnnotations;
@@ -41,6 +43,7 @@ class TestcontainerFieldBeanDefinition extends RootBeanDefinition implements Tes
 		this.setBeanClass(container.getClass());
 		setInstanceSupplier(() -> container);
 		setRole(ROLE_INFRASTRUCTURE);
+		setAttribute(TestcontainerFieldBeanDefinition.class.getName(), true);
 	}
 
 	@Override
@@ -51,6 +54,16 @@ class TestcontainerFieldBeanDefinition extends RootBeanDefinition implements Tes
 	@Override
 	public MergedAnnotations getAnnotations() {
 		return this.annotations;
+	}
+
+	static class TestcontainersBeanRegistrationExcludeFilter implements BeanRegistrationExcludeFilter {
+
+		@Override
+		public boolean isExcludedFromAotProcessing(RegisteredBean registeredBean) {
+			return registeredBean.getMergedBeanDefinition()
+				.getAttribute(TestcontainerFieldBeanDefinition.class.getName()) != null;
+		}
+
 	}
 
 }
