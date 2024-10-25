@@ -20,14 +20,34 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Set;
 
+import org.springframework.aot.generate.AccessControl;
+import org.springframework.aot.generate.GeneratedClass;
+import org.springframework.aot.generate.GeneratedMethod;
+import org.springframework.aot.generate.GenerationContext;
+import org.springframework.aot.generate.MethodReference.ArgumentCodeGenerator;
+import org.springframework.aot.hint.ExecutableMode;
+import org.springframework.beans.factory.aot.BeanFactoryInitializationAotContribution;
+import org.springframework.beans.factory.aot.BeanFactoryInitializationAotProcessor;
+import org.springframework.beans.factory.aot.BeanFactoryInitializationCode;
+import org.springframework.beans.factory.aot.BeanRegistrationExcludeFilter;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.support.RegisteredBean;
+import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.boot.testcontainers.properties.TestcontainersPropertySource;
 import org.springframework.core.MethodIntrospector;
 import org.springframework.core.annotation.MergedAnnotations;
+import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
+import org.springframework.javapoet.ClassName;
+import org.springframework.javapoet.CodeBlock;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
 
 /**
@@ -56,6 +76,18 @@ class DynamicPropertySourceMethodsImporter {
 			ReflectionUtils.makeAccessible(method);
 			ReflectionUtils.invokeMethod(method, null, dynamicPropertyRegistry);
 		});
+		String beanName = "%s.%s".formatted(DynamicPropertySourceBeanFactoryInitializationAotProcessor.class,
+				definitionClass);
+		if (!beanDefinitionRegistry.containsBeanDefinition(beanName)) {
+			RootBeanDefinition bd = new RootBeanDefinition(
+					DynamicPropertySourceBeanFactoryInitializationAotProcessor.class);
+			bd.setAutowireCandidate(false);
+			bd.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
+			bd.setInstanceSupplier(() -> new DynamicPropertySourceBeanFactoryInitializationAotProcessor(beanName,
+					definitionClass, methods));
+			beanDefinitionRegistry.registerBeanDefinition(beanName, bd);
+		}
+
 	}
 
 	private boolean isAnnotated(Method method) {
@@ -69,6 +101,132 @@ class DynamicPropertySourceMethodsImporter {
 		Assert.state(types.length == 1 && types[0] == DynamicPropertyRegistry.class,
 				() -> "@DynamicPropertySource method '" + method.getName()
 						+ "' must accept a single DynamicPropertyRegistry argument");
+	}
+
+	/**
+	 * The {@link BeanFactoryInitializationAotProcessor} generates methods for each
+	 * {@code @DynamicPropertySource-annotated} method.
+	 *
+	 */
+	private static final class DynamicPropertySourceBeanFactoryInitializationAotProcessor
+			implements BeanFactoryInitializationAotProcessor, BeanRegistrationExcludeFilter {
+
+		private static final String DYNAMIC_PROPERTY_REGISTRY = "dynamicPropertyRegistry";
+
+		private final String beanName;
+
+		private final Class<?> definitionClass;
+
+		private final Set<Method> methods;
+
+		DynamicPropertySourceBeanFactoryInitializationAotProcessor(String beanName, Class<?> definitionClass,
+				Set<Method> methods) {
+			this.beanName = beanName;
+			this.definitionClass = definitionClass;
+			this.methods = methods;
+		}
+
+		@Override
+		public BeanFactoryInitializationAotContribution processAheadOfTime(
+				ConfigurableListableBeanFactory beanFactory) {
+			if (this.methods.isEmpty()) {
+				return null;
+			}
+			return new AotContribution(this.definitionClass, this.methods);
+		}
+
+		@Override
+		public boolean isExcludedFromAotProcessing(RegisteredBean registeredBean) {
+			return this.beanName.equals(registeredBean.getBeanName());
+		}
+
+		private static final class AotContribution implements BeanFactoryInitializationAotContribution {
+
+			private final Class<?> definitionClass;
+
+			private final Set<Method> methods;
+
+			private AotContribution(Class<?> definitionClass, Set<Method> methods) {
+				this.definitionClass = definitionClass;
+				this.methods = methods;
+			}
+
+			@Override
+			public void applyTo(GenerationContext generationContext,
+					BeanFactoryInitializationCode beanFactoryInitializationCode) {
+				GeneratedMethod initializerMethod = beanFactoryInitializationCode.getMethods()
+					.add("registerDynamicPropertySourcesFor" + this.definitionClass.getSimpleName(), (code) -> {
+						code.addJavadoc("Register {@code @DynamicPropertySource} properties for a class '$T'.",
+								this.definitionClass);
+						code.addParameter(ConfigurableEnvironment.class, "environment");
+						code.addParameter(DefaultListableBeanFactory.class, "beanFactory");
+						code.addModifiers(javax.lang.model.element.Modifier.PRIVATE,
+								javax.lang.model.element.Modifier.STATIC);
+						code.addStatement("$T dynamicPropertyRegistry = $T.attach(environment, beanFactory)",
+								DynamicPropertyRegistry.class, TestcontainersPropertySource.class);
+						GeneratedMethod registerDynamicPropertySource = registerDynamicPropertySource(
+								generationContext);
+						code.addStatement(registerDynamicPropertySource.toMethodReference()
+							.toInvokeCodeBlock(ArgumentCodeGenerator.of(DynamicPropertyRegistry.class,
+									DYNAMIC_PROPERTY_REGISTRY)));
+					});
+				beanFactoryInitializationCode.addInitializer(initializerMethod.toMethodReference());
+			}
+
+			private GeneratedMethod registerDynamicPropertySource(GenerationContext generationContext) {
+				GeneratedClass generatedClass = generationContext.getGeneratedClasses()
+					.addForFeatureComponent(DynamicPropertySource.class.getSimpleName(), this.definitionClass,
+							(code) -> {
+								code.addJavadoc("Register {@code @DynamicPropertySource} properties for a class '$T'.",
+										this.definitionClass);
+								code.addModifiers(javax.lang.model.element.Modifier.PUBLIC);
+							});
+				return generatedClass.getMethods().add("registerDynamicPropertySources", (code) -> {
+					code.addJavadoc("Register {@code @DynamicPropertySource} properties for class '$T'.",
+							this.definitionClass);
+					code.addParameter(DynamicPropertyRegistry.class, DYNAMIC_PROPERTY_REGISTRY);
+					code.addModifiers(javax.lang.model.element.Modifier.PUBLIC,
+							javax.lang.model.element.Modifier.STATIC);
+					this.methods.forEach((method) -> {
+						GeneratedMethod invokeMethod = invokeMethod(generationContext, generatedClass, method);
+						code.addStatement(invokeMethod.toMethodReference()
+							.toInvokeCodeBlock(ArgumentCodeGenerator.of(DynamicPropertyRegistry.class,
+									DYNAMIC_PROPERTY_REGISTRY)));
+					});
+				});
+			}
+
+			private GeneratedMethod invokeMethod(GenerationContext generationContext, GeneratedClass generatedClass,
+					Method method) {
+				return generatedClass.getMethods().add(method.getName(), (code) -> {
+					code.addJavadoc("Register {@code @DynamicPropertySource} for method '$T.$L'.",
+							method.getDeclaringClass(), method.getName());
+					code.addModifiers(javax.lang.model.element.Modifier.PRIVATE,
+							javax.lang.model.element.Modifier.STATIC);
+					code.addParameter(DynamicPropertyRegistry.class, DYNAMIC_PROPERTY_REGISTRY);
+					if (isMethodAccessible(generatedClass, method)) {
+						code.addStatement(CodeBlock.of("$T.$L($L)", method.getDeclaringClass(), method.getName(),
+								DYNAMIC_PROPERTY_REGISTRY));
+					}
+					else {
+						generationContext.getRuntimeHints().reflection().registerMethod(method, ExecutableMode.INVOKE);
+						code.addStatement("$T<?> clazz = $T.resolveClassName($S, $T.class.getClassLoader())",
+								Class.class, ClassUtils.class, method.getDeclaringClass().getName(),
+								generatedClass.getName());
+						code.addStatement("$T.invokeMethod(clazz, $S, $L)", ReflectionTestUtils.class, method.getName(),
+								DYNAMIC_PROPERTY_REGISTRY);
+					}
+				});
+			}
+
+			private static boolean isMethodAccessible(GeneratedClass generatedClass, Method method) {
+				ClassName className = generatedClass.getName();
+				return AccessControl.forClass(method.getDeclaringClass()).isAccessibleFrom(className)
+						&& AccessControl.forMember(method).isAccessibleFrom(className);
+			}
+
+		}
+
 	}
 
 }

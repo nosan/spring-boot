@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,12 @@ import java.lang.reflect.Field;
 
 import org.testcontainers.containers.Container;
 
+import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.boot.testcontainers.beans.TestcontainerBeanDefinition;
 import org.springframework.core.annotation.MergedAnnotations;
+import org.springframework.util.Assert;
+import org.springframework.util.ReflectionUtils;
 
 /**
  * {@link RootBeanDefinition} used for testcontainer bean definitions.
@@ -38,9 +41,12 @@ class TestcontainerFieldBeanDefinition extends RootBeanDefinition implements Tes
 	TestcontainerFieldBeanDefinition(Field field, Container<?> container) {
 		this.container = container;
 		this.annotations = MergedAnnotations.from(field);
-		this.setBeanClass(container.getClass());
-		setInstanceSupplier(() -> container);
+		setBeanClass(TestcontainerFactoryBean.class);
 		setRole(ROLE_INFRASTRUCTURE);
+		setAttribute(FactoryBean.OBJECT_TYPE_ATTRIBUTE, container.getClass());
+		getConstructorArgumentValues().addIndexedArgumentValue(0, container.getClass().getName());
+		getConstructorArgumentValues().addIndexedArgumentValue(1, field.getDeclaringClass().getName());
+		getConstructorArgumentValues().addIndexedArgumentValue(2, field.getName());
 	}
 
 	@Override
@@ -51,6 +57,41 @@ class TestcontainerFieldBeanDefinition extends RootBeanDefinition implements Tes
 	@Override
 	public MergedAnnotations getAnnotations() {
 		return this.annotations;
+	}
+
+	static final class TestcontainerFactoryBean implements FactoryBean<Container<?>> {
+
+		private final Class<? extends Container<?>> containerClass;
+
+		private final Class<?> testClass;
+
+		private final String fieldName;
+
+		TestcontainerFactoryBean(Class<? extends Container<?>> containerClass, Class<?> testClass, String fieldName) {
+			Assert.notNull(containerClass, "Container class must not be null");
+			Assert.notNull(testClass, "Test class must not be null");
+			Assert.notNull(fieldName, "Field name must not be null");
+			this.testClass = testClass;
+			this.containerClass = containerClass;
+			this.fieldName = fieldName;
+		}
+
+		@Override
+		public Container<?> getObject() {
+			Field field = ReflectionUtils.findField(this.testClass, this.fieldName);
+			Assert.notNull(field, "Field '" + this.fieldName + "' is not found in class '" + this.testClass + "'");
+			ReflectionUtils.makeAccessible(field);
+			Object container = ReflectionUtils.getField(field, null);
+			Assert.notNull(container, "Container field '" + field.getName() + "' in class '" + field.getDeclaringClass()
+					+ "' must not have a null value");
+			return this.containerClass.cast(container);
+		}
+
+		@Override
+		public Class<?> getObjectType() {
+			return this.containerClass;
+		}
+
 	}
 
 }
