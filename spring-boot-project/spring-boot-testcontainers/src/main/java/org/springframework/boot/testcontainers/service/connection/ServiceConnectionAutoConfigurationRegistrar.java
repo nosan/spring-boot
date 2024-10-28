@@ -17,15 +17,26 @@
 package org.springframework.boot.testcontainers.service.connection;
 
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
+
+import javax.lang.model.element.Modifier;
 
 import org.testcontainers.containers.Container;
 
+import org.springframework.aot.generate.GeneratedClass;
+import org.springframework.aot.generate.GeneratedMethod;
+import org.springframework.aot.generate.GenerationContext;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.beans.factory.aot.BeanFactoryInitializationAotContribution;
+import org.springframework.beans.factory.aot.BeanFactoryInitializationAotProcessor;
+import org.springframework.beans.factory.aot.BeanFactoryInitializationCode;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.boot.autoconfigure.service.connection.ConnectionDetails;
 import org.springframework.boot.autoconfigure.service.connection.ConnectionDetailsFactories;
 import org.springframework.boot.origin.Origin;
 import org.springframework.boot.testcontainers.beans.TestcontainerBeanDefinition;
@@ -54,7 +65,7 @@ class ServiceConnectionAutoConfigurationRegistrar implements ImportBeanDefinitio
 		}
 	}
 
-	private void registerBeanDefinitions(ConfigurableListableBeanFactory beanFactory, BeanDefinitionRegistry registry) {
+	static void registerBeanDefinitions(ConfigurableListableBeanFactory beanFactory, BeanDefinitionRegistry registry) {
 		ConnectionDetailsRegistrar registrar = new ConnectionDetailsRegistrar(beanFactory,
 				new ConnectionDetailsFactories());
 		for (String beanName : beanFactory.getBeanNamesForType(Container.class)) {
@@ -66,7 +77,7 @@ class ServiceConnectionAutoConfigurationRegistrar implements ImportBeanDefinitio
 		}
 	}
 
-	private Set<ServiceConnection> getAnnotations(ConfigurableListableBeanFactory beanFactory, String beanName,
+	private static Set<ServiceConnection> getAnnotations(ConfigurableListableBeanFactory beanFactory, String beanName,
 			BeanDefinition beanDefinition) {
 		Set<ServiceConnection> annotations = new LinkedHashSet<>(
 				beanFactory.findAllAnnotationsOnBean(beanName, ServiceConnection.class, false));
@@ -79,7 +90,7 @@ class ServiceConnectionAutoConfigurationRegistrar implements ImportBeanDefinitio
 		return annotations;
 	}
 
-	private BeanDefinition getBeanDefinition(ConfigurableListableBeanFactory beanFactory, String beanName) {
+	private static BeanDefinition getBeanDefinition(ConfigurableListableBeanFactory beanFactory, String beanName) {
 		try {
 			return beanFactory.getBeanDefinition(beanName);
 		}
@@ -89,7 +100,7 @@ class ServiceConnectionAutoConfigurationRegistrar implements ImportBeanDefinitio
 	}
 
 	@SuppressWarnings("unchecked")
-	private <C extends Container<?>> ContainerConnectionSource<C> createSource(
+	private static <C extends Container<?>> ContainerConnectionSource<C> createSource(
 			ConfigurableListableBeanFactory beanFactory, String beanName, BeanDefinition beanDefinition,
 			ServiceConnection annotation) {
 		Origin origin = new BeanOrigin(beanName, beanDefinition);
@@ -98,6 +109,47 @@ class ServiceConnectionAutoConfigurationRegistrar implements ImportBeanDefinitio
 				? testcontainerBeanDefinition.getContainerImageName() : null;
 		return new ContainerConnectionSource<>(beanName, origin, containerType, containerImageName, annotation,
 				() -> beanFactory.getBean(beanName, containerType));
+	}
+
+	static class ServiceConnectionBeanFactoryInitializationAotProcessor
+			implements BeanFactoryInitializationAotProcessor {
+
+		@Override
+		public BeanFactoryInitializationAotContribution processAheadOfTime(
+				ConfigurableListableBeanFactory beanFactory) {
+			Map<String, ServiceConnectionAutoConfiguration> beans = beanFactory
+				.getBeansOfType(ServiceConnectionAutoConfiguration.class, false, false);
+			if (beans.isEmpty()) {
+				return null;
+			}
+			return new AotContibution();
+		}
+
+		private static final class AotContibution implements BeanFactoryInitializationAotContribution {
+
+			private static final String BEAN_FACTORY_PARAM = "beanFactory";
+
+			@Override
+			public void applyTo(GenerationContext generationContext,
+					BeanFactoryInitializationCode beanFactoryInitializationCode) {
+				GeneratedClass generatedClass = generationContext.getGeneratedClasses()
+					.addForFeatureComponent(ServiceConnection.class.getName(),
+							ServiceConnectionAutoConfigurationRegistrar.class,
+							(code) -> code.addModifiers(Modifier.PUBLIC));
+				GeneratedMethod generatedMethod = generatedClass.getMethods()
+					.add("registerConnectionDetails", (code) -> {
+						code.addJavadoc("Register '$T' Bean Definitions", ConnectionDetails.class);
+						code.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+						code.addParameter(DefaultListableBeanFactory.class, BEAN_FACTORY_PARAM);
+						code.addStatement("$T.registerBeanDefinitions($L, $L)",
+								ServiceConnectionAutoConfigurationRegistrar.class, BEAN_FACTORY_PARAM,
+								BEAN_FACTORY_PARAM);
+					});
+				beanFactoryInitializationCode.addInitializer(generatedMethod.toMethodReference());
+			}
+
+		}
+
 	}
 
 }

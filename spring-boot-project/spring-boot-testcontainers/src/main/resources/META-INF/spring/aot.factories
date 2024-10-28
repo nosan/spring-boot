@@ -3,3 +3,8 @@ org.springframework.boot.testcontainers.service.connection.ConnectionDetailsRegi
 
 org.springframework.aot.hint.RuntimeHintsRegistrar=\
 org.springframework.boot.testcontainers.service.connection.ContainerConnectionDetailsFactory.ContainerConnectionDetailsFactoriesRuntimeHints
+
+
+
+org.springframework.beans.factory.aot.BeanFactoryInitializationAotProcessor=\
+org.springframework.boot.testcontainers.service.connection.ServiceConnectionAutoConfigurationRegistrar.ServiceConnectionBeanFactoryInitializationAotProcessor

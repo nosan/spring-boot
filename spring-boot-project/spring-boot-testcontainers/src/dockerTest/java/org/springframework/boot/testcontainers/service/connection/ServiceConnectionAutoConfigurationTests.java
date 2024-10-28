@@ -17,6 +17,7 @@
 package org.springframework.boot.testcontainers.service.connection;
 
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -34,18 +35,23 @@ import org.springframework.boot.testsupport.classpath.ClassPathExclusions;
 import org.springframework.boot.testsupport.container.DisabledIfDockerUnavailable;
 import org.springframework.boot.testsupport.container.RedisContainer;
 import org.springframework.boot.testsupport.container.TestImage;
+import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.ImportBeanDefinitionRegistrar;
 import org.springframework.context.aot.ApplicationContextAotGenerator;
+import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.annotation.MergedAnnotation;
 import org.springframework.core.annotation.MergedAnnotations;
+import org.springframework.core.test.tools.CompileWithForkedClassLoader;
+import org.springframework.core.test.tools.TestCompiler;
 import org.springframework.core.type.AnnotationMetadata;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.javapoet.ClassName;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -108,14 +114,34 @@ class ServiceConnectionAutoConfigurationTests {
 	}
 
 	@Test
+	@CompileWithForkedClassLoader
 	void serviceConnectionBeansDoNotCauseAotProcessingToFail() {
 		try (AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext()) {
-			applicationContext.register(WithNoExtraAutoConfiguration.class, ContainerConfiguration.class);
+			applicationContext.register(WithRedisAutoConfiguration.class, ContainerConfiguration.class);
 			new TestcontainersLifecycleApplicationContextInitializer().initialize(applicationContext);
-			TestGenerationContext generationContext = new TestGenerationContext();
-			assertThatNoException().isThrownBy(() -> new ApplicationContextAotGenerator()
-				.processAheadOfTime(applicationContext, generationContext));
+			processAheadOfTime(applicationContext, (freshContext) -> {
+				StringRedisTemplate redisTemplate = freshContext.getBean(StringRedisTemplate.class);
+				redisTemplate.opsForHash().put("test", "test", "test");
+			});
 		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private void processAheadOfTime(AnnotationConfigApplicationContext context,
+			Consumer<GenericApplicationContext> aotContextConsumer) {
+		TestGenerationContext generationContext = new TestGenerationContext();
+		ClassName className = new ApplicationContextAotGenerator().processAheadOfTime(context, generationContext);
+		generationContext.writeGeneratedContent();
+		TestCompiler.forSystem().with(generationContext).compile((compiled) -> {
+			try (GenericApplicationContext aotContext = new GenericApplicationContext()) {
+				new TestcontainersLifecycleApplicationContextInitializer().initialize(aotContext);
+				ApplicationContextInitializer<GenericApplicationContext> actInitializer = compiled
+					.getInstance(ApplicationContextInitializer.class, className.toString());
+				actInitializer.initialize(aotContext);
+				aotContext.refresh();
+				aotContextConsumer.accept(aotContext);
+			}
+		});
 	}
 
 	@Configuration(proxyBeanMethods = false)
