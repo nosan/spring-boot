@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.boot.actuate.quartz;
 
+import java.util.Map;
 import java.util.Set;
 
 import org.quartz.SchedulerException;
@@ -27,6 +28,7 @@ import org.springframework.boot.actuate.endpoint.SecurityContext;
 import org.springframework.boot.actuate.endpoint.Show;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
 import org.springframework.boot.actuate.endpoint.annotation.Selector;
+import org.springframework.boot.actuate.endpoint.annotation.WriteOperation;
 import org.springframework.boot.actuate.endpoint.web.WebEndpointResponse;
 import org.springframework.boot.actuate.endpoint.web.annotation.EndpointWebExtension;
 import org.springframework.boot.actuate.quartz.QuartzEndpoint.QuartzGroupsDescriptor;
@@ -35,6 +37,7 @@ import org.springframework.boot.actuate.quartz.QuartzEndpoint.QuartzJobGroupSumm
 import org.springframework.boot.actuate.quartz.QuartzEndpoint.QuartzTriggerGroupSummaryDescriptor;
 import org.springframework.boot.actuate.quartz.QuartzEndpointWebExtension.QuartzEndpointWebExtensionRuntimeHints;
 import org.springframework.context.annotation.ImportRuntimeHints;
+import org.springframework.lang.Nullable;
 
 /**
  * {@link EndpointWebExtension @EndpointWebExtension} for the {@link QuartzEndpoint}.
@@ -77,6 +80,19 @@ public class QuartzEndpointWebExtension {
 		boolean showUnsanitized = this.showValues.isShown(securityContext, this.roles);
 		return handle(jobsOrTriggers, () -> this.delegate.quartzJob(group, name, showUnsanitized),
 				() -> this.delegate.quartzTrigger(group, name, showUnsanitized));
+	}
+
+	@WriteOperation
+	public WebEndpointResponse<Object> triggerQuartzJob(@Selector String jobs, @Selector String group,
+			@Selector String name, @Selector String action, @Nullable Map<String, Object> jobData)
+			throws SchedulerException {
+		if (!"jobs".equals(jobs)) {
+			return new WebEndpointResponse<>(WebEndpointResponse.STATUS_BAD_REQUEST);
+		}
+		if (!"trigger".equals(action)) {
+			return new WebEndpointResponse<>(WebEndpointResponse.STATUS_BAD_REQUEST);
+		}
+		return handleNull(this.delegate.triggerQuartzJob(group, name, jobData));
 	}
 
 	private <T> WebEndpointResponse<T> handle(String jobsOrTriggers, ResponseSupplier<T> jobAction,

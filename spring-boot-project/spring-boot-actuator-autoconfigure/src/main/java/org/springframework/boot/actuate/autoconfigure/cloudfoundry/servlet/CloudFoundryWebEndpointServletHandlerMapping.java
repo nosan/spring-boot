@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -155,7 +155,7 @@ class CloudFoundryWebEndpointServletHandlerMapping extends AbstractWebMvcEndpoin
 		}
 
 		@Override
-		public Object handle(HttpServletRequest request, Map<String, String> body) {
+		public Object handle(HttpServletRequest request, Map<String, Object> body) {
 			SecurityResponse securityResponse = this.securityInterceptor.preHandle(request, this.endpointId);
 			if (!securityResponse.getStatus().equals(HttpStatus.OK)) {
 				return new ResponseEntity<Object>(securityResponse.getMessage(), securityResponse.getStatus());

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -147,12 +147,12 @@ class CloudFoundryWebFluxEndpointHandlerMapping extends AbstractWebFluxEndpointH
 		}
 
 		@Override
-		public Mono<ResponseEntity<Object>> handle(ServerWebExchange exchange, Map<String, String> body) {
+		public Mono<ResponseEntity<Object>> handle(ServerWebExchange exchange, Map<String, Object> body) {
 			return this.securityInterceptor.preHandle(exchange, this.endpointId.toLowerCaseString())
 				.flatMap((securityResponse) -> flatMapResponse(exchange, body, securityResponse));
 		}
 
-		private Mono<ResponseEntity<Object>> flatMapResponse(ServerWebExchange exchange, Map<String, String> body,
+		private Mono<ResponseEntity<Object>> flatMapResponse(ServerWebExchange exchange, Map<String, Object> body,
 				SecurityResponse securityResponse) {
 			if (!securityResponse.getStatus().equals(HttpStatus.OK)) {
 				return Mono.just(new ResponseEntity<>(securityResponse.getStatus()));
