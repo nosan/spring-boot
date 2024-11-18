@@ -298,7 +298,7 @@ public abstract class AbstractWebFluxEndpointHandlerMapping extends RequestMappi
 	@FunctionalInterface
 	protected interface ReactiveWebOperation {
 
-		Mono<ResponseEntity<Object>> handle(ServerWebExchange exchange, Map<String, Object> body);
+		Mono<ResponseEntity<Object>> handle(ServerWebExchange exchange, Map<String, String> body);
 
 	}
 
@@ -349,7 +349,7 @@ public abstract class AbstractWebFluxEndpointHandlerMapping extends RequestMappi
 		}
 
 		@Override
-		public Mono<ResponseEntity<Object>> handle(ServerWebExchange exchange, Map<String, Object> body) {
+		public Mono<ResponseEntity<Object>> handle(ServerWebExchange exchange, Map<String, String> body) {
 			Map<String, Object> arguments = getArguments(exchange, body);
 			OperationArgumentResolver serverNamespaceArgumentResolver = OperationArgumentResolver
 				.of(WebServerNamespace.class, () -> WebServerNamespace
@@ -363,7 +363,7 @@ public abstract class AbstractWebFluxEndpointHandlerMapping extends RequestMappi
 						exchange.getRequest().getMethod()));
 		}
 
-		private Map<String, Object> getArguments(ServerWebExchange exchange, Map<String, Object> body) {
+		private Map<String, Object> getArguments(ServerWebExchange exchange, Map<String, String> body) {
 			Map<String, Object> arguments = new LinkedHashMap<>(getTemplateVariables(exchange));
 			String matchAllRemainingPathSegmentsVariable = this.operation.getRequestPredicate()
 				.getMatchAllRemainingPathSegmentsVariable();
@@ -448,7 +448,7 @@ public abstract class AbstractWebFluxEndpointHandlerMapping extends RequestMappi
 		@ResponseBody
 		@Reflective
 		Publisher<ResponseEntity<Object>> handle(ServerWebExchange exchange,
-				@RequestBody(required = false) Map<String, Object> body) {
+				@RequestBody(required = false) Map<String, String> body) {
 			return this.operation.handle(exchange, body);
 		}
 

@@ -278,7 +278,7 @@ public abstract class AbstractWebMvcEndpointHandlerMapping extends RequestMappin
 	@FunctionalInterface
 	protected interface ServletWebOperation {
 
-		Object handle(HttpServletRequest request, Map<String, Object> body);
+		Object handle(HttpServletRequest request, Map<String, String> body);
 
 	}
 
@@ -308,7 +308,7 @@ public abstract class AbstractWebMvcEndpointHandlerMapping extends RequestMappin
 		}
 
 		@Override
-		public Object handle(HttpServletRequest request, @RequestBody(required = false) Map<String, Object> body) {
+		public Object handle(HttpServletRequest request, @RequestBody(required = false) Map<String, String> body) {
 			HttpHeaders headers = new ServletServerHttpRequest(request).getHeaders();
 			Map<String, Object> arguments = getArguments(request, body);
 			try {
@@ -336,7 +336,7 @@ public abstract class AbstractWebMvcEndpointHandlerMapping extends RequestMappin
 			return "Actuator web endpoint '" + this.operation.getId() + "'";
 		}
 
-		private Map<String, Object> getArguments(HttpServletRequest request, Map<String, Object> body) {
+		private Map<String, Object> getArguments(HttpServletRequest request, Map<String, String> body) {
 			Map<String, Object> arguments = new LinkedHashMap<>(getTemplateVariables(request));
 			String matchAllRemainingPathSegmentsVariable = this.operation.getRequestPredicate()
 				.getMatchAllRemainingPathSegmentsVariable();
@@ -430,7 +430,7 @@ public abstract class AbstractWebMvcEndpointHandlerMapping extends RequestMappin
 
 		@ResponseBody
 		@Reflective
-		Object handle(HttpServletRequest request, @RequestBody(required = false) Map<String, Object> body) {
+		Object handle(HttpServletRequest request, @RequestBody(required = false) Map<String, String> body) {
 			return this.operation.handle(request, body);
 		}
 
