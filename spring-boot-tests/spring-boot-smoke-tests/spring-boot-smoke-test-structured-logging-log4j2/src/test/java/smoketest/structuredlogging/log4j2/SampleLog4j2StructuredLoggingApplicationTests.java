@@ -62,4 +62,10 @@ class SampleLog4j2StructuredLoggingApplicationTests {
 		assertThat(output).contains("epoch=").contains("msg=\"Starting SampleLog4j2StructuredLoggingApplication");
 	}
 
+	@Test
+	void shouldCaptureCustomizerError(CapturedOutput output) {
+		SampleLog4j2StructuredLoggingApplication.main(new String[] { "--spring.profiles.active=on-error" });
+		assertThat(output).contains("The name 'test' has already been written");
+	}
+
 }
