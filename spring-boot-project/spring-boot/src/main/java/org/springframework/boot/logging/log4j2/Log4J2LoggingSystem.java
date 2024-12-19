@@ -47,6 +47,8 @@ import org.apache.logging.log4j.core.net.ssl.SslConfigurationFactory;
 import org.apache.logging.log4j.core.util.AuthorizationProvider;
 import org.apache.logging.log4j.core.util.NameUtil;
 import org.apache.logging.log4j.jul.Log4jBridgeHandler;
+import org.apache.logging.log4j.status.StatusConsoleListener;
+import org.apache.logging.log4j.status.StatusLogger;
 import org.apache.logging.log4j.util.PropertiesUtil;
 
 import org.springframework.boot.context.properties.bind.BindResult;
@@ -91,6 +93,9 @@ public class Log4J2LoggingSystem extends AbstractLoggingSystem {
 
 	static final String ENVIRONMENT_KEY = Conventions.getQualifiedAttributeName(Log4J2LoggingSystem.class,
 			"environment");
+
+	static final String STATUS_LISTENER_KEY = Conventions.getQualifiedAttributeName(Log4J2LoggingSystem.class,
+			"statusListener");
 
 	private static final LogLevels<Level> LEVELS = new LogLevels<>();
 
@@ -219,6 +224,9 @@ public class Log4J2LoggingSystem extends AbstractLoggingSystem {
 			Log4J2LoggingSystem.propertySource.setEnvironment(environment);
 			PropertiesUtil.getProperties().addPropertySource(Log4J2LoggingSystem.propertySource);
 		}
+		StatusConsoleListener listener = new StatusConsoleListener(Level.ERROR, System.err);
+		StatusLogger.getLogger().registerListener(listener);
+		getLoggerContext().putObject(STATUS_LISTENER_KEY, listener);
 		loggerContext.getConfiguration().removeFilter(FILTER);
 		super.initialize(initializationContext, configLocation, logFile);
 		markAsInitialized(loggerContext);
@@ -439,6 +447,12 @@ public class Log4J2LoggingSystem extends AbstractLoggingSystem {
 		markAsUninitialized(loggerContext);
 		loggerContext.getConfiguration().removeFilter(FILTER);
 		Log4J2LoggingSystem.propertySource.setEnvironment(null);
+		StatusConsoleListener listener = (StatusConsoleListener) getLoggerContext().getObject(STATUS_LISTENER_KEY);
+		if (listener != null) {
+			StatusLogger.getLogger().removeListener(listener);
+			getLoggerContext().removeObject(STATUS_LISTENER_KEY);
+		}
+		loggerContext.getConfiguration().removeFilter(FILTER);
 		getLoggerContext().removeObject(ENVIRONMENT_KEY);
 	}
 
