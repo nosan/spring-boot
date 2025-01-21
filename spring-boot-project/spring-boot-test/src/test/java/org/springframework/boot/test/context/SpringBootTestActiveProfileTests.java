@@ -22,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,8 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Phillip Webb
  */
 @DirtiesContext
-@SpringBootTest(value = "spring.config.name=enableother", applyTestProfile = false)
-@ActiveProfiles("override")
+@SpringBootTest(value = "spring.config.name=enableother", profiles = { "override" })
 class SpringBootTestActiveProfileTests {
 
 	@Autowired

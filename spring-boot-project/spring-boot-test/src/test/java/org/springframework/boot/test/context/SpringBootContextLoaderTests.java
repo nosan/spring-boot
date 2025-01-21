@@ -39,7 +39,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.env.StandardEnvironment;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ApplicationContextFailureProcessor;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.ContextHierarchy;
@@ -274,8 +273,7 @@ class SpringBootContextLoaderTests {
 		assertThat(actual).containsEntry(key, value);
 	}
 
-	@SpringBootTest(properties = { "key=myValue", "anotherKey:anotherValue" }, classes = Config.class,
-			applyTestProfile = false)
+	@SpringBootTest(properties = { "key=myValue", "anotherKey:anotherValue" }, classes = Config.class, profiles = {})
 	static class SimpleConfig {
 
 	}
@@ -315,19 +313,17 @@ class SpringBootContextLoaderTests {
 
 	}
 
-	@SpringBootTest(classes = Config.class, applyTestProfile = false)
-	@ActiveProfiles({ "profile1", "profile2" })
+	@SpringBootTest(classes = Config.class, profiles = { "profile1", "profile2" })
 	static class MultipleActiveProfiles {
 
 	}
 
-	@SpringBootTest(properties = { "key=myValue" }, classes = Config.class)
-	@ActiveProfiles({ "profile1" })
+	@SpringBootTest(properties = { "key=myValue" }, classes = Config.class, profiles = "profile1")
 	static class ActiveProfileWithInlinedProperties {
 
 	}
 
-	@SpringBootTest(classes = Config.class, args = "args", properties = "one=1", applyTestProfile = false)
+	@SpringBootTest(classes = Config.class, args = "args", properties = "one=1", profiles = {})
 	@TestPropertySource(properties = "two=2")
 	static class PropertySourceOrdering {
 
@@ -348,19 +344,17 @@ class SpringBootContextLoaderTests {
 
 	}
 
-	@SpringBootTest(classes = ConfigWithNoMain.class, useMainMethod = UseMainMethod.WHEN_AVAILABLE,
-			applyTestProfile = false)
+	@SpringBootTest(classes = ConfigWithNoMain.class, useMainMethod = UseMainMethod.WHEN_AVAILABLE, profiles = {})
 	static class UseMainMethodWhenAvailableAndNoMainMethod {
 
 	}
 
-	@SpringBootTest(classes = ConfigWithMain.class, useMainMethod = UseMainMethod.WHEN_AVAILABLE,
-			applyTestProfile = false)
+	@SpringBootTest(classes = ConfigWithMain.class, useMainMethod = UseMainMethod.WHEN_AVAILABLE, profiles = {})
 	static class UseMainMethodWhenAvailableAndMainMethod {
 
 	}
 
-	@SpringBootTest(classes = ConfigWithMain.class, useMainMethod = UseMainMethod.NEVER, applyTestProfile = false)
+	@SpringBootTest(classes = ConfigWithMain.class, useMainMethod = UseMainMethod.NEVER, profiles = {})
 	static class UseMainMethodNever {
 
 	}

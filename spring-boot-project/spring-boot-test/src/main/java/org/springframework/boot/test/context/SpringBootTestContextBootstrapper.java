@@ -378,23 +378,19 @@ public class SpringBootTestContextBootstrapper extends DefaultTestContextBootstr
 			Class<?>[] classes, String[] propertySourceProperties) {
 		Set<ContextCustomizer> contextCustomizers = new LinkedHashSet<>(mergedConfig.getContextCustomizers());
 		contextCustomizers.add(new SpringBootTestAnnotation(mergedConfig.getTestClass()));
-		boolean applyTestProfile = getApplyTestProfile(mergedConfig.getTestClass());
-		String[] profiles = (applyTestProfile) ? activateTestProfile(mergedConfig.getActiveProfiles())
-				: mergedConfig.getActiveProfiles();
 		return new MergedContextConfiguration(mergedConfig.getTestClass(), mergedConfig.getLocations(), classes,
-				mergedConfig.getContextInitializerClasses(), profiles, mergedConfig.getPropertySourceDescriptors(),
-				propertySourceProperties, contextCustomizers, mergedConfig.getContextLoader(),
-				getCacheAwareContextLoaderDelegate(), mergedConfig.getParent());
+				mergedConfig.getContextInitializerClasses(),
+				getActiveProfiles(mergedConfig.getTestClass(), mergedConfig.getActiveProfiles()),
+				mergedConfig.getPropertySourceDescriptors(), propertySourceProperties, contextCustomizers,
+				mergedConfig.getContextLoader(), getCacheAwareContextLoaderDelegate(), mergedConfig.getParent());
 	}
 
-	private boolean getApplyTestProfile(Class<?> testClass) {
+	private String[] getActiveProfiles(Class<?> testClass, String[] activeProfiles) {
 		SpringBootTest annotation = getAnnotation(testClass);
-		return (annotation != null) ? annotation.applyTestProfile() : true;
-	}
-
-	private String[] activateTestProfile(String[] activeProfiles) {
 		Set<String> profiles = new LinkedHashSet<>(Arrays.asList(activeProfiles));
-		profiles.add("test");
+		if (annotation != null) {
+			profiles.addAll(Arrays.asList(annotation.profiles()));
+		}
 		return profiles.toArray(String[]::new);
 	}
 

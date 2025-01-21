@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.testsupport.container.TestImage;
-import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,8 +67,7 @@ class SamplePulsarApplicationTests {
 	}
 
 	@Nested
-	@SpringBootTest
-	@ActiveProfiles("smoketest-pulsar-imperative")
+	@SpringBootTest(profiles = "smoketest-pulsar-imperative")
 	class ImperativePulsarApplication extends PulsarApplication {
 
 		ImperativePulsarApplication() {
@@ -79,8 +77,7 @@ class SamplePulsarApplicationTests {
 	}
 
 	@Nested
-	@SpringBootTest
-	@ActiveProfiles("smoketest-pulsar-reactive")
+	@SpringBootTest(profiles = "smoketest-pulsar-reactive")
 	class ReactivePulsarApplication extends PulsarApplication {
 
 		ReactivePulsarApplication() {

@@ -240,8 +240,7 @@ This changelog will be used when the tests are run and it will not be packaged i
 It includes the production changelog and then declares a new changeset, whose `runOrder: last` setting specifies that it runs after all the production changesets have been run.
 You can now use for example the https://docs.liquibase.com/change-types/insert.html[insert changeset] to insert data or the https://docs.liquibase.com/change-types/sql.html[sql changeset] to execute SQL directly.
 
-The last thing to do is to configure Spring Boot to activate the `test` profile when running tests.
-To do this, you can add the `@ActiveProfiles("test")` annotation to your javadoc:org.springframework.boot.test.context.SpringBootTest[format=annotation] annotated test classes.
+Spring Boot automatically activates the `test` profile when running tests.
 
 
 

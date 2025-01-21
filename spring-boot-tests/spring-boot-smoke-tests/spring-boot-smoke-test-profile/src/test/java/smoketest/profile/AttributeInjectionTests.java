@@ -24,7 +24,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // gh-29169
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, applyTestProfile = false)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, profiles = {})
 class AttributeInjectionTests {
 
 	@Autowired(required = false)

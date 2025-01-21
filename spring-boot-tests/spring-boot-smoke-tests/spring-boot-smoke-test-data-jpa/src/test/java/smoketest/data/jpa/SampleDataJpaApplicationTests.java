@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,9 +36,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Dave Syer
  */
 // Enable JMX so we can test the MBeans (you can't do this in a properties file)
-@SpringBootTest(properties = "spring.jmx.enabled:true")
+@SpringBootTest(properties = "spring.jmx.enabled:true", profiles = "scratch")
 @AutoConfigureMockMvc
-@ActiveProfiles("scratch")
 // Separate profile for web tests to avoid clashing databases
 class SampleDataJpaApplicationTests {
 

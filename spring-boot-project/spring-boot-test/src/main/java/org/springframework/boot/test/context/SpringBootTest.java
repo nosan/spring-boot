@@ -67,7 +67,7 @@ import org.springframework.web.context.WebApplicationContext;
  * {@link org.springframework.test.web.reactive.server.WebTestClient WebTestClient} bean
  * for use in web tests that are using a fully running web server.</li>
  * <li>Applies the {@code test} profile. This can be controlled through the
- * {@link #applyTestProfile()} attribute.</li>
+ * {@link #profiles()} } attribute.</li>
  * </ul>
  *
  * @author Phillip Webb
@@ -137,11 +137,11 @@ public @interface SpringBootTest {
 	UseMainMethod useMainMethod() default UseMainMethod.NEVER;
 
 	/**
-	 * Whether to automatically apply the {@code test} profile.
-	 * @return whether to automatically apply the test profile
+	 * The profiles to activate.
+	 * @return profiles to activate.
 	 * @since 3.5.0
 	 */
-	boolean applyTestProfile() default true;
+	String[] profiles() default { "test" };
 
 	/**
 	 * An enumeration web environment modes.

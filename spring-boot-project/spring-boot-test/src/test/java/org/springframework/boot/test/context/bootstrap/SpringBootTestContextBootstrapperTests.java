@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.context.SpringBootTestContextBootstrapper;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.BootstrapContext;
 import org.springframework.test.context.CacheAwareContextLoaderDelegate;
 import org.springframework.test.context.MergedContextConfiguration;
@@ -177,8 +176,7 @@ class SpringBootTestContextBootstrapperTests {
 
 	}
 
-	@SpringBootTest
-	@ActiveProfiles({ "test", "profile-a" })
+	@SpringBootTest(profiles = { "test", "profile-a" })
 	static class SpringBootTestProfileConfiguration {
 
 	}

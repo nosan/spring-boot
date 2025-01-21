@@ -23,7 +23,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
 import org.springframework.mock.env.MockEnvironment;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,8 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @author Madhura Bhave
  */
-@SpringBootTest(applyTestProfile = false)
-@ActiveProfiles({ "test1", "test2" })
+@SpringBootTest(profiles = { "test1", "test2" })
 @ContextConfiguration(loader = SpringBootTestWithCustomEnvironmentTests.Loader.class)
 class SpringBootTestWithCustomEnvironmentTests {
 

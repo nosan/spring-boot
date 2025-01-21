@@ -23,7 +23,6 @@ import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.core.env.Environment;
-import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,8 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Madhura Bhave
  */
 @SpringBootTest(webEnvironment = WebEnvironment.NONE, properties = { "enableEnvironmentPostProcessor=true" },
-		applyTestProfile = false) // gh-28530
-@ActiveProfiles("hello")
+		profiles = "hello") // gh-28530
 class ActiveProfilesTests {
 
 	@Autowired
