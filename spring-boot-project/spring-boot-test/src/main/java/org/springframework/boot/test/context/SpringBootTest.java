@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,10 +66,13 @@ import org.springframework.web.context.WebApplicationContext;
  * TestRestTemplate} and/or
  * {@link org.springframework.test.web.reactive.server.WebTestClient WebTestClient} bean
  * for use in web tests that are using a fully running web server.</li>
+ * <li>Applies the {@code test} profile. This can be controlled through the
+ * {@link #applyTestProfile()} attribute.</li>
  * </ul>
  *
  * @author Phillip Webb
  * @author Andy Wilkinson
+ * @author Moritz Halbritter
  * @since 1.4.0
  * @see ContextConfiguration
  */
@@ -132,6 +135,13 @@ public @interface SpringBootTest {
 	 * @since 3.0.0
 	 */
 	UseMainMethod useMainMethod() default UseMainMethod.NEVER;
+
+	/**
+	 * Whether to automatically apply the {@code test} profile.
+	 * @return whether to automatically apply the test profile
+	 * @since 3.5.0
+	 */
+	boolean applyTestProfile() default true;
 
 	/**
 	 * An enumeration web environment modes.

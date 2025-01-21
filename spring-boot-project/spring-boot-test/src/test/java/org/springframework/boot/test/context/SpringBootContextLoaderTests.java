@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,6 +121,11 @@ class SpringBootContextLoaderTests {
 	@Test
 	void noActiveProfiles() {
 		assertThat(getActiveProfiles(SimpleConfig.class)).isEmpty();
+	}
+
+	@Test
+	void testProfileActive() {
+		assertThat(getActiveProfiles(SimpleConfigWithTestProfile.class)).containsExactly("test");
 	}
 
 	@Test
@@ -269,8 +274,14 @@ class SpringBootContextLoaderTests {
 		assertThat(actual).containsEntry(key, value);
 	}
 
-	@SpringBootTest(properties = { "key=myValue", "anotherKey:anotherValue" }, classes = Config.class)
+	@SpringBootTest(properties = { "key=myValue", "anotherKey:anotherValue" }, classes = Config.class,
+			applyTestProfile = false)
 	static class SimpleConfig {
+
+	}
+
+	@SpringBootTest(properties = { "key=myValue", "anotherKey:anotherValue" }, classes = Config.class)
+	static class SimpleConfigWithTestProfile {
 
 	}
 
@@ -304,7 +315,7 @@ class SpringBootContextLoaderTests {
 
 	}
 
-	@SpringBootTest(classes = Config.class)
+	@SpringBootTest(classes = Config.class, applyTestProfile = false)
 	@ActiveProfiles({ "profile1", "profile2" })
 	static class MultipleActiveProfiles {
 
@@ -316,7 +327,7 @@ class SpringBootContextLoaderTests {
 
 	}
 
-	@SpringBootTest(classes = Config.class, args = "args", properties = "one=1")
+	@SpringBootTest(classes = Config.class, args = "args", properties = "one=1", applyTestProfile = false)
 	@TestPropertySource(properties = "two=2")
 	static class PropertySourceOrdering {
 
@@ -337,17 +348,19 @@ class SpringBootContextLoaderTests {
 
 	}
 
-	@SpringBootTest(classes = ConfigWithNoMain.class, useMainMethod = UseMainMethod.WHEN_AVAILABLE)
+	@SpringBootTest(classes = ConfigWithNoMain.class, useMainMethod = UseMainMethod.WHEN_AVAILABLE,
+			applyTestProfile = false)
 	static class UseMainMethodWhenAvailableAndNoMainMethod {
 
 	}
 
-	@SpringBootTest(classes = ConfigWithMain.class, useMainMethod = UseMainMethod.WHEN_AVAILABLE)
+	@SpringBootTest(classes = ConfigWithMain.class, useMainMethod = UseMainMethod.WHEN_AVAILABLE,
+			applyTestProfile = false)
 	static class UseMainMethodWhenAvailableAndMainMethod {
 
 	}
 
-	@SpringBootTest(classes = ConfigWithMain.class, useMainMethod = UseMainMethod.NEVER)
+	@SpringBootTest(classes = ConfigWithMain.class, useMainMethod = UseMainMethod.NEVER, applyTestProfile = false)
 	static class UseMainMethodNever {
 
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,6 +75,7 @@ import org.springframework.util.StringUtils;
  * @author Brian Clozel
  * @author Madhura Bhave
  * @author Lorenzo Dee
+ * @author Moritz Halbritter
  * @since 1.4.0
  * @see SpringBootTest
  * @see TestConfiguration
@@ -377,10 +378,24 @@ public class SpringBootTestContextBootstrapper extends DefaultTestContextBootstr
 			Class<?>[] classes, String[] propertySourceProperties) {
 		Set<ContextCustomizer> contextCustomizers = new LinkedHashSet<>(mergedConfig.getContextCustomizers());
 		contextCustomizers.add(new SpringBootTestAnnotation(mergedConfig.getTestClass()));
+		boolean applyTestProfile = getApplyTestProfile(mergedConfig.getTestClass());
+		String[] profiles = (applyTestProfile) ? activateTestProfile(mergedConfig.getActiveProfiles())
+				: mergedConfig.getActiveProfiles();
 		return new MergedContextConfiguration(mergedConfig.getTestClass(), mergedConfig.getLocations(), classes,
-				mergedConfig.getContextInitializerClasses(), mergedConfig.getActiveProfiles(),
-				mergedConfig.getPropertySourceDescriptors(), propertySourceProperties, contextCustomizers,
-				mergedConfig.getContextLoader(), getCacheAwareContextLoaderDelegate(), mergedConfig.getParent());
+				mergedConfig.getContextInitializerClasses(), profiles, mergedConfig.getPropertySourceDescriptors(),
+				propertySourceProperties, contextCustomizers, mergedConfig.getContextLoader(),
+				getCacheAwareContextLoaderDelegate(), mergedConfig.getParent());
+	}
+
+	private boolean getApplyTestProfile(Class<?> testClass) {
+		SpringBootTest annotation = getAnnotation(testClass);
+		return (annotation != null) ? annotation.applyTestProfile() : true;
+	}
+
+	private String[] activateTestProfile(String[] activeProfiles) {
+		Set<String> profiles = new LinkedHashSet<>(Arrays.asList(activeProfiles));
+		profiles.add("test");
+		return profiles.toArray(String[]::new);
 	}
 
 }
