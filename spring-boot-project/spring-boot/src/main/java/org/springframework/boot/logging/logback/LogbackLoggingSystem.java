@@ -221,6 +221,7 @@ public class LogbackLoggingSystem extends AbstractLoggingSystem implements BeanF
 		boolean configuredUsingAotGeneratedArtifacts = configurator.configureUsingAotGeneratedArtifacts();
 		if (configuredUsingAotGeneratedArtifacts) {
 			reportConfigurationErrorsIfNecessary(loggerContext);
+			addOnErrorConsoleStatusListener(loggerContext);
 		}
 		return configuredUsingAotGeneratedArtifacts;
 	}
@@ -235,9 +236,7 @@ public class LogbackLoggingSystem extends AbstractLoggingSystem implements BeanF
 			if (debug) {
 				StatusListenerConfigHelper.addOnConsoleListenerInstance(loggerContext, new OnConsoleStatusListener());
 			}
-			else {
-				addOnErrorConsoleStatusListener(loggerContext);
-			}
+			addOnErrorConsoleStatusListener(loggerContext);
 			Environment environment = initializationContext.getEnvironment();
 			// Apply system properties directly in case the same JVM runs multiple apps
 			new LogbackLoggingSystemProperties(environment, getDefaultValueResolver(environment),
@@ -271,6 +270,7 @@ public class LogbackLoggingSystem extends AbstractLoggingSystem implements BeanF
 			loggerContext.start();
 		});
 		reportConfigurationErrorsIfNecessary(loggerContext);
+		addOnErrorConsoleStatusListener(loggerContext);
 	}
 
 	private void reportConfigurationErrorsIfNecessary(LoggerContext loggerContext) {
@@ -492,6 +492,9 @@ public class LogbackLoggingSystem extends AbstractLoggingSystem implements BeanF
 	}
 
 	private void addOnErrorConsoleStatusListener(LoggerContext context) {
+		if (StatusUtil.contextHasStatusListener(context)) {
+			return;
+		}
 		FilteringStatusListener listener = new FilteringStatusListener(new OnErrorConsoleStatusListener(),
 				Status.ERROR);
 		listener.setContext(context);
