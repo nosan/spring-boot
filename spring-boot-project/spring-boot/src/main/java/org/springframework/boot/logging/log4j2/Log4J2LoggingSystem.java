@@ -47,7 +47,6 @@ import org.apache.logging.log4j.core.net.ssl.SslConfigurationFactory;
 import org.apache.logging.log4j.core.util.AuthorizationProvider;
 import org.apache.logging.log4j.core.util.NameUtil;
 import org.apache.logging.log4j.jul.Log4jBridgeHandler;
-import org.apache.logging.log4j.status.StatusLogger;
 import org.apache.logging.log4j.util.PropertiesUtil;
 
 import org.springframework.boot.context.properties.bind.BindResult;
@@ -214,7 +213,6 @@ public class Log4J2LoggingSystem extends AbstractLoggingSystem {
 		if (isAlreadyInitialized(loggerContext)) {
 			return;
 		}
-		resetFallbackListenerStream(StatusLogger.getLogger());
 		Environment environment = initializationContext.getEnvironment();
 		if (environment != null) {
 			getLoggerContext().putObject(ENVIRONMENT_KEY, environment);
@@ -226,20 +224,6 @@ public class Log4J2LoggingSystem extends AbstractLoggingSystem {
 		markAsInitialized(loggerContext);
 	}
 
-	/**
-	 * Reset the stream used by the fallback listener to the current system out. This
-	 * allows the fallback listener to work with any captured output streams in a similar
-	 * way to the {@code follow} attribute of the {@code Console} appender.
-	 * @param statusLogger the status logger to update
-	 */
-	private void resetFallbackListenerStream(StatusLogger statusLogger) {
-		try {
-			statusLogger.getFallbackListener().setStream(System.out);
-		}
-		catch (NoSuchMethodError ex) {
-			// Ignore for older versions of Log4J
-		}
-	}
 
 	@Override
 	protected void loadDefaults(LoggingInitializationContext initializationContext, LogFile logFile) {

@@ -16,7 +16,9 @@
 
 package smoketest.structuredlogging.log4j2;
 
+import org.apache.logging.log4j.status.StatusLogger;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -34,6 +36,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @ExtendWith(OutputCaptureExtension.class)
 class SampleLog4j2StructuredLoggingApplicationTests {
+
+	@BeforeEach
+	void resetStatusLogger() {
+		StatusLogger.getLogger().getFallbackListener().setStream(System.out);
+	}
 
 	@AfterEach
 	void reset() {
