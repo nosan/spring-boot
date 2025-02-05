@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,10 +66,7 @@ public class ReactiveWebServerApplicationContext extends GenericReactiveWebAppli
 			super.refresh();
 		}
 		catch (RuntimeException ex) {
-			WebServerManager serverManager = this.serverManager;
-			if (serverManager != null) {
-				serverManager.getWebServer().stop();
-			}
+			stopAndDestroyWebServer();
 			throw ex;
 		}
 	}
@@ -147,6 +144,7 @@ public class ReactiveWebServerApplicationContext extends GenericReactiveWebAppli
 			AvailabilityChangeEvent.publish(this, ReadinessState.REFUSING_TRAFFIC);
 		}
 		super.doClose();
+		stopAndDestroyWebServer();
 	}
 
 	/**
@@ -168,6 +166,19 @@ public class ReactiveWebServerApplicationContext extends GenericReactiveWebAppli
 	@Override
 	public void setServerNamespace(String serverNamespace) {
 		this.serverNamespace = serverNamespace;
+	}
+
+	private void stopAndDestroyWebServer() {
+		WebServer webServer = getWebServer();
+		if (webServer != null) {
+			try {
+				webServer.stop();
+				webServer.destroy();
+			}
+			catch (RuntimeException ex) {
+				this.logger.error("Failed to stop and destroy WebServer", ex);
+			}
+		}
 	}
 
 }
