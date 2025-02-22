@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.springframework.boot.actuate.autoconfigure.metrics.export.otlp;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -27,9 +26,9 @@ import io.micrometer.registry.otlp.OtlpConfig;
 
 import org.springframework.boot.actuate.autoconfigure.metrics.export.properties.StepRegistryPropertiesConfigAdapter;
 import org.springframework.boot.actuate.autoconfigure.opentelemetry.OpenTelemetryProperties;
+import org.springframework.boot.actuate.autoconfigure.opentelemetry.OpenTelemetryResourceAttributes;
 import org.springframework.core.env.Environment;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 /**
  * Adapter to convert {@link OtlpMetricsProperties} to an {@link OtlpConfig}.
@@ -77,14 +76,20 @@ class OtlpMetricsPropertiesConfigAdapter extends StepRegistryPropertiesConfigAda
 	}
 
 	@Override
-	@SuppressWarnings("removal")
 	public Map<String, String> resourceAttributes() {
+		Map<String, String> attributes = new OpenTelemetryResourceAttributes(getResourceAttributes()).asMap();
+		attributes.computeIfAbsent("service.name", (key) -> getApplicationName());
+		attributes.computeIfAbsent("service.group", (key) -> getApplicationGroup());
+		return attributes;
+	}
+
+	@SuppressWarnings("removal")
+	private Map<String, String> getResourceAttributes() {
 		Map<String, String> resourceAttributes = this.openTelemetryProperties.getResourceAttributes();
-		Map<String, String> result = new HashMap<>((!CollectionUtils.isEmpty(resourceAttributes)) ? resourceAttributes
-				: get(OtlpMetricsProperties::getResourceAttributes, OtlpConfig.super::resourceAttributes));
-		result.computeIfAbsent("service.name", (key) -> getApplicationName());
-		result.computeIfAbsent("service.group", (key) -> getApplicationGroup());
-		return Collections.unmodifiableMap(result);
+		if (!CollectionUtils.isEmpty(resourceAttributes)) {
+			return resourceAttributes;
+		}
+		return get(OtlpMetricsProperties::getResourceAttributes, Collections::emptyMap);
 	}
 
 	private String getApplicationName() {
@@ -92,8 +97,7 @@ class OtlpMetricsPropertiesConfigAdapter extends StepRegistryPropertiesConfigAda
 	}
 
 	private String getApplicationGroup() {
-		String applicationGroup = this.environment.getProperty("spring.application.group");
-		return (StringUtils.hasLength(applicationGroup)) ? applicationGroup : null;
+		return this.environment.getProperty("spring.application.group");
 	}
 
 	@Override
