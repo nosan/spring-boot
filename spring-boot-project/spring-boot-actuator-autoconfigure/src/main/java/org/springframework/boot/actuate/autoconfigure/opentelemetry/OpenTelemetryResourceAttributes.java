@@ -21,81 +21,49 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.util.function.SupplierUtils;
 
 /**
- * OpenTelemetryResourceAttributes retrieves information from the
- * {@code OTEL_RESOURCE_ATTRIBUTES} and {@code OTEL_SERVICE_NAME} environment variables
- * and merges it with the resource attributes provided by the user.
+ * {@link OpenTelemetryResourceAttributes} is used for handling string-based OpenTelemetry
+ * resource attributes.
  * <p>
- * <b>User-provided resource attributes take precedence.</b>
+ * This class is meant for internal use only and is not a replacement for the
+ * OpenTelemetry Java Resource SDK.
  * <p>
  * <a href= "https://opentelemetry.io/docs/specs/otel/resource/sdk/">OpenTelemetry
  * Resource Specification</a>
  *
  * @author Dmytro Nosan
  * @since 3.5.0
+ * @see #fromEnv()
  */
 public final class OpenTelemetryResourceAttributes {
 
-	private final Map<String, String> resourceAttributes;
-
-	private final Function<String, String> getEnv;
+	private final Map<String, String> attributes = new LinkedHashMap<>();
 
 	/**
-	 * Creates a new instance of {@link OpenTelemetryResourceAttributes}.
-	 * @param resourceAttributes user provided resource attributes to be used
-	 */
-	public OpenTelemetryResourceAttributes(Map<String, String> resourceAttributes) {
-		this(resourceAttributes, null);
-	}
-
-	/**
-	 * Creates a new {@link OpenTelemetryResourceAttributes} instance.
-	 * @param resourceAttributes user provided resource attributes to be used
-	 * @param getEnv a function to retrieve environment variables by name
-	 */
-	OpenTelemetryResourceAttributes(Map<String, String> resourceAttributes, Function<String, String> getEnv) {
-		this.resourceAttributes = (resourceAttributes != null) ? resourceAttributes : Collections.emptyMap();
-		this.getEnv = (getEnv != null) ? getEnv : System::getenv;
-	}
-
-	/**
-	 * Returns resource attributes by combining attributes from environment variables and
-	 * user-defined resource attributes. The final resource contains all attributes from
-	 * both sources.
-	 * <p>
-	 * If a key exists in both environment variables and user-defined resources, the value
-	 * from the user-defined resource takes precedence, even if it is empty.
-	 * <p>
-	 * <b>Null keys and values are ignored.</b>
-	 * @return the resource attributes
-	 */
-	public Map<String, String> asMap() {
-		Map<String, String> attributes = getResourceAttributesFromEnv();
-		this.resourceAttributes.forEach((name, value) -> {
-			if (name != null && value != null) {
-				attributes.put(name, value);
-			}
-		});
-		return attributes;
-	}
-
-	/**
-	 * Parses resource attributes from the {@link System#getenv()}. This method fetches
-	 * attributes defined in the {@code OTEL_RESOURCE_ATTRIBUTES} and
-	 * {@code OTEL_SERVICE_NAME} environment variables and provides them as key-value
-	 * pairs.
+	 * Creates an {@link OpenTelemetryResourceAttributes} instance based on environment
+	 * variables. This method fetches attributes defined in the
+	 * {@code OTEL_RESOURCE_ATTRIBUTES} and {@code OTEL_SERVICE_NAME} environment
+	 * variables.
 	 * <p>
 	 * If {@code service.name} is also provided in {@code OTEL_RESOURCE_ATTRIBUTES}, then
 	 * {@code OTEL_SERVICE_NAME} takes precedence.
-	 * @return resource attributes
+	 * @return an {@link OpenTelemetryResourceAttributes}
 	 */
-	private Map<String, String> getResourceAttributesFromEnv() {
-		Map<String, String> attributes = new LinkedHashMap<>();
-		for (String attribute : StringUtils.tokenizeToStringArray(getEnv("OTEL_RESOURCE_ATTRIBUTES"), ",")) {
+	public static OpenTelemetryResourceAttributes fromEnv() {
+		return fromEnv(System::getenv);
+	}
+
+	static OpenTelemetryResourceAttributes fromEnv(Function<String, String> getEnv) {
+		OpenTelemetryResourceAttributes attributes = new OpenTelemetryResourceAttributes();
+		for (String attribute : StringUtils.tokenizeToStringArray(getEnv.apply("OTEL_RESOURCE_ATTRIBUTES"), ",")) {
 			int index = attribute.indexOf('=');
 			if (index > 0) {
 				String key = attribute.substring(0, index);
@@ -103,15 +71,65 @@ public final class OpenTelemetryResourceAttributes {
 				attributes.put(key.trim(), decode(value.trim()));
 			}
 		}
-		String otelServiceName = getEnv("OTEL_SERVICE_NAME");
+		String otelServiceName = getEnv.apply("OTEL_SERVICE_NAME");
 		if (otelServiceName != null) {
 			attributes.put("service.name", otelServiceName);
 		}
 		return attributes;
 	}
 
-	private String getEnv(String name) {
-		return this.getEnv.apply(name);
+	/**
+	 * Return Resource attributes as a Map.
+	 * @return the resource attributes as key-value pairs
+	 */
+	public Map<String, String> asMap() {
+		return Collections.unmodifiableMap(this.attributes);
+	}
+
+	/**
+	 * Performs the given action for each key-value pairs.
+	 * @param consumer the operation to perform for each entry
+	 */
+	public void forEach(BiConsumer<String, String> consumer) {
+		this.attributes.forEach(consumer);
+	}
+
+	/**
+	 * Merge attributes with the provided resource attributes.
+	 * <p>
+	 * If a key exists in both, the value from provided resource takes precedence, even if
+	 * it is empty.
+	 * <p>
+	 * <b>Keys that are null or empty will be skipped.</b>
+	 * <p>
+	 * <b>Values that are null will be skipped.</b>
+	 * @param resourceAttributes resource attributes
+	 */
+	public void putAll(Map<String, String> resourceAttributes) {
+		if (!CollectionUtils.isEmpty(resourceAttributes)) {
+			resourceAttributes.forEach(this::put);
+		}
+	}
+
+	/**
+	 * Adds a key-value pair to the resource attributes.
+	 * <p>
+	 * <b>Key that is null or empty it will be skipped.</b>
+	 * <p>
+	 * <b>Value that is null will be skipped.</b>
+	 * @param key the attribute key to add, must not be null or empty
+	 * @param valueSupplier the attribute value supplier
+	 */
+	public void putIfAbsent(String key, Supplier<String> valueSupplier) {
+		if (!this.attributes.containsKey(key)) {
+			put(key, SupplierUtils.resolve(valueSupplier));
+		}
+	}
+
+	private void put(String key, String value) {
+		if (StringUtils.hasLength(key) && value != null) {
+			this.attributes.put(key, value);
+		}
 	}
 
 	/**
@@ -122,7 +140,7 @@ public final class OpenTelemetryResourceAttributes {
 	 * @param value value to decode
 	 * @return the decoded string
 	 */
-	public static String decode(String value) {
+	private static String decode(String value) {
 		if (value.indexOf('%') < 0) {
 			return value;
 		}
