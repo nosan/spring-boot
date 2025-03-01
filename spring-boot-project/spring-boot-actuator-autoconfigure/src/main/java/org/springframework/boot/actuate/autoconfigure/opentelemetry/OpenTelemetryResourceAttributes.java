@@ -26,7 +26,7 @@ import java.util.function.Function;
 import org.springframework.util.StringUtils;
 
 /**
- * OpenTelemetryResourceAttributes retrieves information from the
+ * {@link OpenTelemetryResourceAttributes} retrieves information from the
  * {@code OTEL_RESOURCE_ATTRIBUTES} and {@code OTEL_SERVICE_NAME} environment variables
  * and merges it with the resource attributes provided by the user.
  * <p>
@@ -76,7 +76,7 @@ public final class OpenTelemetryResourceAttributes {
 	public Map<String, String> asMap() {
 		Map<String, String> attributes = getResourceAttributesFromEnv();
 		this.resourceAttributes.forEach((name, value) -> {
-			if (name != null && value != null) {
+			if (StringUtils.hasLength(name) && value != null) {
 				attributes.put(name, value);
 			}
 		});
@@ -122,7 +122,7 @@ public final class OpenTelemetryResourceAttributes {
 	 * @param value value to decode
 	 * @return the decoded string
 	 */
-	public static String decode(String value) {
+	private static String decode(String value) {
 		if (value.indexOf('%') < 0) {
 			return value;
 		}
