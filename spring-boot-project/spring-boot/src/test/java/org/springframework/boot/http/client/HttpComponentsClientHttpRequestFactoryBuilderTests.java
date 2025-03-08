@@ -18,12 +18,14 @@ package org.springframework.boot.http.client;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import org.apache.hc.client5.http.HttpRoute;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.TlsSocketStrategy;
 import org.apache.hc.core5.function.Resolver;
@@ -75,6 +77,33 @@ class HttpComponentsClientHttpRequestFactoryBuilderTests
 		socketConfigCustomizer1.assertCalled();
 		defaultRequestConfigCustomizer.assertCalled();
 		defaultRequestConfigCustomizer1.assertCalled();
+	}
+
+	@Test
+	void withConnectionManagerPostConfigurer() {
+		AtomicReference<PoolingHttpClientConnectionManager> connectionManagerCapture = new AtomicReference<>();
+		HttpComponentsClientHttpRequestFactory requestFactory = ClientHttpRequestFactoryBuilder.httpComponents()
+			.withConnectionManagerPostConfigurer((connectionManager) -> connectionManager.setDefaultMaxPerRoute(50))
+			.withConnectionManagerPostConfigurer((connectionManager) -> connectionManager.setMaxTotal(100))
+			.withConnectionManagerPostConfigurer(connectionManagerCapture::set)
+			.build();
+		HttpClient httpClient = requestFactory.getHttpClient();
+		assertThat(httpClient).extracting("connManager")
+			.isSameAs(connectionManagerCapture.get())
+			.hasFieldOrPropertyWithValue("defaultMaxPerRoute", 50)
+			.hasFieldOrPropertyWithValue("maxTotal", 100);
+	}
+
+	@Test
+	void withConnectionManagerPostConfigurerWhenPoolingHttpClientConnectionManagerOverridden() {
+		AtomicReference<PoolingHttpClientConnectionManager> connectionManagerCapture = new AtomicReference<>();
+		HttpComponentsClientHttpRequestFactory requestFactory = ClientHttpRequestFactoryBuilder.httpComponents()
+			.withConnectionManagerPostConfigurer(connectionManagerCapture::set)
+			.withHttpClientCustomizer((httpClientBuilder) -> httpClientBuilder
+				.setConnectionManager(new PoolingHttpClientConnectionManager()))
+			.build();
+		HttpClient httpClient = requestFactory.getHttpClient();
+		assertThat(httpClient).extracting("connManager").isNotSameAs(connectionManagerCapture.get());
 	}
 
 	@Test
