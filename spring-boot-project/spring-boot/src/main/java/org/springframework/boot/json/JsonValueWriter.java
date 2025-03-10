@@ -28,6 +28,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import org.springframework.boot.json.JsonWriter.Configuration;
 import org.springframework.boot.json.JsonWriter.MemberPath;
 import org.springframework.boot.json.JsonWriter.NameProcessor;
 import org.springframework.boot.json.JsonWriter.ValueProcessor;
@@ -46,11 +47,9 @@ import org.springframework.util.function.ThrowingConsumer;
  */
 class JsonValueWriter {
 
-	private static final int DEFAULT_MAX_NESTING_DEPTH = 1000;
+	private final Configuration configuration;
 
 	private final Appendable out;
-
-	private final int maxNestingDepth;
 
 	private MemberPath path = MemberPath.ROOT;
 
@@ -61,20 +60,11 @@ class JsonValueWriter {
 	/**
 	 * Create a new {@link JsonValueWriter} instance.
 	 * @param out the {@link Appendable} used to receive the JSON output
+	 * @param configuration the configuration settings to be used for JSON writing
 	 */
-	JsonValueWriter(Appendable out) {
-		this(out, DEFAULT_MAX_NESTING_DEPTH);
-	}
-
-	/**
-	 * Create a new {@link JsonValueWriter} instance.
-	 * @param out the {@link Appendable} used to receive the JSON output
-	 * @param maxNestingDepth the maximum allowed nesting depth for JSON objects and
-	 * arrays
-	 */
-	JsonValueWriter(Appendable out, int maxNestingDepth) {
+	JsonValueWriter(Configuration configuration, Appendable out) {
+		this.configuration = configuration;
 		this.out = out;
-		this.maxNestingDepth = maxNestingDepth;
 	}
 
 	void pushProcessors(JsonWriterFiltersAndProcessors jsonProcessors) {
@@ -284,9 +274,10 @@ class JsonValueWriter {
 	}
 
 	private void validateNestingDepth() {
-		if (this.activeSeries.size() > this.maxNestingDepth) {
+		int maxNestingDepth = this.configuration.getMaxNestingDepth();
+		if (this.activeSeries.size() > maxNestingDepth) {
 			throw new IllegalStateException("JSON nesting depth (%s) exceeds maximum depth of %s (current path: %s)"
-				.formatted(this.activeSeries.size(), this.maxNestingDepth, this.path));
+				.formatted(this.activeSeries.size(), maxNestingDepth, this.path));
 		}
 	}
 

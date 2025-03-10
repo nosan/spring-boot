@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -140,7 +140,7 @@ public interface JsonWriter<T> {
 
 	/**
 	 * Factory method to return a {@link JsonWriter} with specific {@link Members member
-	 * mapping}. See {@link JsonValueWriter class-level javadoc} and {@link Members} for
+	 * mapping}. See {@link JsonWriter class-level javadoc} and {@link Members} for
 	 * details.
 	 * @param <T> the type to write
 	 * @param members a consumer, which should configure the members
@@ -148,9 +148,23 @@ public interface JsonWriter<T> {
 	 * @see Members
 	 */
 	static <T> JsonWriter<T> of(Consumer<Members<T>> members) {
-		// Don't inline 'new Members' (must be outside of lambda)
-		Members<T> initializedMembers = new Members<>(members, false);
-		return (instance, out) -> initializedMembers.write(instance, new JsonValueWriter(out));
+		return of(Configuration.defaults(), members);
+	}
+
+	/**
+	 * Factory method to return a {@link JsonWriter} with specific {@link Members member
+	 * mapping}. See {@link JsonWriter class-level javadoc} and {@link Members} for
+	 * details.
+	 * @param <T> the type to write
+	 * @param members a consumer, which should configure the members
+	 * @param configuration the configuration settings to be used for JSON writing
+	 * @return a {@link JsonWriter} instance
+	 * @see Members
+	 */
+	static <T> JsonWriter<T> of(Configuration configuration, Consumer<Members<T>> members) {
+		Assert.notNull(members, "'members' must not be null");
+		Assert.notNull(configuration, "'configuration' must not be null");
+		return new DefaultJsonWriter<>(configuration, new Members<>(members, false));
 	}
 
 	/**
@@ -1037,6 +1051,50 @@ public interface JsonWriter<T> {
 		static <T> ValueProcessor<T> of(UnaryOperator<T> action) {
 			Assert.notNull(action, "'action' must not be null");
 			return (name, value) -> action.apply(value);
+		}
+
+	}
+
+	/**
+	 * Specifies configuration settings used to configure the {@link JsonWriter}.
+	 */
+	final class Configuration {
+
+		private static final int DEFAULT_MAX_NESTING_DEPTH = 256;
+
+		private static final Configuration DEFAULTS = new Configuration(DEFAULT_MAX_NESTING_DEPTH);
+
+		private final int maxNestingDepth;
+
+		private Configuration(int maxNestingDepth) {
+			this.maxNestingDepth = maxNestingDepth;
+		}
+
+		/**
+		 * Returns a default {@link Configuration} instance.
+		 * @return a {@link Configuration} instance with default settings
+		 */
+		public static Configuration defaults() {
+			return DEFAULTS;
+		}
+
+		/**
+		 * Set the maximum nesting depth, representing the number of unclosed objects
+		 * (`{`) and arrays (`[`).
+		 * @param maxNestingDepth the maximum depth
+		 * @return a new {@link Configuration} instance.
+		 */
+		public Configuration withMaxNestingDepth(int maxNestingDepth) {
+			Assert.isTrue(maxNestingDepth >= 0, "'maxNestingDepth' must be positive");
+			return new Configuration(maxNestingDepth);
+		}
+
+		/**
+		 * Retrieves the maximum allowable nesting depth for unclosed objects and arrays.
+		 * @return the maximum nesting depth
+		 */
+		public int getMaxNestingDepth() {
+			return this.maxNestingDepth;
 		}
 
 	}

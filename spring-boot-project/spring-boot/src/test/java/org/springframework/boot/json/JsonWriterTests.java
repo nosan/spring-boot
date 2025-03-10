@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import org.springframework.boot.json.JsonWriter.Configuration;
 import org.springframework.boot.json.JsonWriter.Member;
 import org.springframework.boot.json.JsonWriter.MemberPath;
 import org.springframework.boot.json.JsonWriter.Members;
@@ -93,6 +94,13 @@ class JsonWriterTests {
 	void ofAddingUnnamedSelf() {
 		JsonWriter<Person> writer = JsonWriter.of((members) -> members.add());
 		assertThat(writer.writeToString(PERSON)).isEqualTo(quoted("Spring Boot (10)"));
+	}
+
+	@Test
+	void ofWithCustomConfiguration() {
+		Configuration configuration = Configuration.defaults().withMaxNestingDepth(36);
+		JsonWriter<Object> writer = JsonWriter.of(configuration, Members::add);
+		assertThat(writer).hasFieldOrPropertyWithValue("configuration", configuration);
 	}
 
 	@Test
@@ -694,6 +702,31 @@ class JsonWriterTests {
 			assertThatIllegalStateException().isThrownBy(() -> writer.writeToString(new Person("spring", "boot", 10)))
 				.withMessageContaining("NameProcessor")
 				.withMessageContaining("returned an empty result");
+		}
+
+	}
+
+	/**
+	 * Tests for {@link JsonWriter.Configuration}.
+	 */
+	@Nested
+	class ConfigurationTests {
+
+		@Test
+		void defaults() {
+			Configuration configuration = Configuration.defaults();
+			assertThat(configuration.getMaxNestingDepth()).isEqualTo(256);
+		}
+
+		@Test
+		void withMaxNestingDepth() {
+			assertThat(Configuration.defaults().withMaxNestingDepth(128).getMaxNestingDepth()).isEqualTo(128);
+		}
+
+		@Test
+		void withNegativeMaxNestingDepth() {
+			assertThatIllegalArgumentException().isThrownBy(() -> Configuration.defaults().withMaxNestingDepth(-1))
+				.withMessage("'maxNestingDepth' must be positive");
 		}
 
 	}

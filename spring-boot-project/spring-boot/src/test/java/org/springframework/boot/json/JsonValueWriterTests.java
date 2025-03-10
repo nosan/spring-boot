@@ -27,6 +27,7 @@ import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.json.JsonValueWriter.Series;
+import org.springframework.boot.json.JsonWriter.Configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -243,32 +244,32 @@ class JsonValueWriterTests {
 
 	@Test
 	void illegalStateExceptionShouldBeThrownWhenCollectionExceededNestingDepth() {
-		JsonValueWriter writer = new JsonValueWriter(new StringBuilder(), 128);
 		List<Object> list = new ArrayList<>();
 		list.add(list);
-		assertThatIllegalStateException().isThrownBy(() -> writer.write(list))
+		doWrite(Configuration.defaults().withMaxNestingDepth(128), (writer) -> assertThatIllegalStateException()
+			.isThrownBy(() -> writer.write(list))
 			.withMessageStartingWith(
-					"JSON nesting depth (129) exceeds maximum depth of 128 (current path: [0][0][0][0][0][0][0][0][0][0][0][0]");
+					"JSON nesting depth (129) exceeds maximum depth of 128 (current path: [0][0][0][0][0][0][0][0][0][0][0][0]"));
 	}
 
 	@Test
 	void illegalStateExceptionShouldBeThrownWhenMapExceededNestingDepth() {
-		JsonValueWriter writer = new JsonValueWriter(new StringBuilder(), 128);
 		Map<String, Object> map = new LinkedHashMap<>();
 		map.put("foo", Map.of("bar", map));
-		assertThatIllegalStateException().isThrownBy(() -> writer.write(map))
+		doWrite(Configuration.defaults().withMaxNestingDepth(128), (writer) -> assertThatIllegalStateException()
+			.isThrownBy(() -> writer.write(map))
 			.withMessageStartingWith(
-					"JSON nesting depth (129) exceeds maximum depth of 128 (current path: foo.bar.foo.bar.foo.bar.foo");
+					"JSON nesting depth (129) exceeds maximum depth of 128 (current path: foo.bar.foo.bar.foo.bar.foo"));
 	}
 
 	@Test
 	void illegalStateExceptionShouldBeThrownWhenIterableExceededNestingDepth() {
-		JsonValueWriter writer = new JsonValueWriter(new StringBuilder(), 128);
 		List<Object> list = new ArrayList<>();
 		list.add(list);
-		assertThatIllegalStateException().isThrownBy(() -> writer.write((Iterable<Object>) list::iterator))
+		doWrite(Configuration.defaults().withMaxNestingDepth(128), (writer) -> assertThatIllegalStateException()
+			.isThrownBy(() -> writer.write((Iterable<Object>) list::iterator))
 			.withMessageStartingWith(
-					"JSON nesting depth (129) exceeds maximum depth of 128 (current path: [0][0][0][0][0][0][0][0][0][0][0][0]");
+					"JSON nesting depth (129) exceeds maximum depth of 128 (current path: [0][0][0][0][0][0][0][0][0][0][0][0]"));
 	}
 
 	private <V> String write(V value) {
@@ -276,8 +277,12 @@ class JsonValueWriterTests {
 	}
 
 	private String doWrite(Consumer<JsonValueWriter> action) {
+		return doWrite(Configuration.defaults(), action);
+	}
+
+	private String doWrite(Configuration configuration, Consumer<JsonValueWriter> action) {
 		StringBuilder out = new StringBuilder();
-		action.accept(new JsonValueWriter(out));
+		action.accept(new JsonValueWriter(configuration, out));
 		return out.toString();
 	}
 
