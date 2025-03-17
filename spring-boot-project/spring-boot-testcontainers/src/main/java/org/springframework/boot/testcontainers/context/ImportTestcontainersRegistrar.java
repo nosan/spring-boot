@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,9 @@ package org.springframework.boot.testcontainers.context;
 
 import java.util.Set;
 
-import org.testcontainers.lifecycle.Startable;
-
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.context.annotation.ImportBeanDefinitionRegistrar;
 import org.springframework.core.annotation.MergedAnnotation;
-import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
@@ -44,7 +41,7 @@ class ImportTestcontainersRegistrar implements ImportBeanDefinitionRegistrar {
 
 	private final DynamicPropertySourceMethodsImporter dynamicPropertySourceMethodsImporter;
 
-	ImportTestcontainersRegistrar(Environment environment) {
+	ImportTestcontainersRegistrar() {
 		this.containerFieldsImporter = new ContainerFieldsImporter();
 		this.dynamicPropertySourceMethodsImporter = (!ClassUtils.isPresent(DYNAMIC_PROPERTY_SOURCE_CLASS, null)) ? null
 				: new DynamicPropertySourceMethodsImporter();
@@ -64,7 +61,7 @@ class ImportTestcontainersRegistrar implements ImportBeanDefinitionRegistrar {
 
 	private void registerBeanDefinitions(BeanDefinitionRegistry registry, Class<?>[] definitionClasses) {
 		for (Class<?> definitionClass : definitionClasses) {
-			Set<Startable> importedContainers = this.containerFieldsImporter.registerBeanDefinitions(registry,
+			Set<ContainerField> importedContainers = this.containerFieldsImporter.registerBeanDefinitions(registry,
 					definitionClass);
 			if (this.dynamicPropertySourceMethodsImporter != null) {
 				this.dynamicPropertySourceMethodsImporter.registerDynamicPropertySources(registry, definitionClass,
