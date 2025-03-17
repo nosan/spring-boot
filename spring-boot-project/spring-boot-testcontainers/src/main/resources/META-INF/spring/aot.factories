@@ -3,3 +3,7 @@ org.springframework.boot.testcontainers.service.connection.ConnectionDetailsRegi
 
 org.springframework.aot.hint.RuntimeHintsRegistrar=\
 org.springframework.boot.testcontainers.service.connection.ContainerConnectionDetailsFactory$ContainerConnectionDetailsFactoriesRuntimeHints
+
+org.springframework.beans.factory.aot.BeanRegistrationAotProcessor=\
+org.springframework.boot.testcontainers.context.DynamicPropertySourceMethodsImporter$DynamicPropertySourcePropertyRegistrarBeanRegistrationAotProcessor,\
+org.springframework.boot.testcontainers.context.TestcontainerFieldBeanDefinition$TestcontainerBeanRegistrationAotProcessor

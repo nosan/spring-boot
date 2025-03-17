@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
 
 package org.springframework.boot.testcontainers.context;
 
-import java.util.Set;
+import java.lang.reflect.Field;
+import java.util.Map;
 
 import org.testcontainers.lifecycle.Startable;
 
@@ -64,7 +65,7 @@ class ImportTestcontainersRegistrar implements ImportBeanDefinitionRegistrar {
 
 	private void registerBeanDefinitions(BeanDefinitionRegistry registry, Class<?>[] definitionClasses) {
 		for (Class<?> definitionClass : definitionClasses) {
-			Set<Startable> importedContainers = this.containerFieldsImporter.registerBeanDefinitions(registry,
+			Map<Field, Startable> importedContainers = this.containerFieldsImporter.registerBeanDefinitions(registry,
 					definitionClass);
 			if (this.dynamicPropertySourceMethodsImporter != null) {
 				this.dynamicPropertySourceMethodsImporter.registerDynamicPropertySources(registry, definitionClass,

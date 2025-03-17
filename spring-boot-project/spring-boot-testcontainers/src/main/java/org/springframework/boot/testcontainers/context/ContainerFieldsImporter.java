@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ package org.springframework.boot.testcontainers.context;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import org.testcontainers.containers.Container;
 import org.testcontainers.lifecycle.Startable;
@@ -38,13 +38,13 @@ import org.springframework.util.ReflectionUtils;
  */
 class ContainerFieldsImporter {
 
-	Set<Startable> registerBeanDefinitions(BeanDefinitionRegistry registry, Class<?> definitionClass) {
-		Set<Startable> importedContainers = new HashSet<>();
+	Map<Field, Startable> registerBeanDefinitions(BeanDefinitionRegistry registry, Class<?> definitionClass) {
+		Map<Field, Startable> importedContainers = new LinkedHashMap<>();
 		for (Field field : getContainerFields(definitionClass)) {
 			assertValid(field);
 			Container<?> container = getContainer(field);
 			if (container instanceof Startable startable) {
-				importedContainers.add(startable);
+				importedContainers.put(field, startable);
 			}
 			registerBeanDefinition(registry, field, container);
 		}
