@@ -90,7 +90,7 @@ class ImportTestcontainersAotTests {
 	@SuppressWarnings("unchecked")
 	private void compile(Consumer<GenericApplicationContext> result) {
 		ClassName className = processAheadOfTime();
-		TestCompiler.forSystem().with(this.generationContext).compile((compiled) -> {
+		TestCompiler.forSystem().with(this.generationContext).printFiles(System.out).compile((compiled) -> {
 			try (GenericApplicationContext context = new GenericApplicationContext()) {
 				ApplicationContextInitializer<GenericApplicationContext> initializer = compiled
 					.getInstance(ApplicationContextInitializer.class, className.toString());

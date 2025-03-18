@@ -16,30 +16,11 @@
 
 package org.springframework.boot.testcontainers.context;
 
-import java.lang.reflect.Field;
-
-import javax.lang.model.element.Modifier;
-
 import org.testcontainers.containers.Container;
 
-import org.springframework.aot.generate.AccessControl;
-import org.springframework.aot.generate.GenerationContext;
-import org.springframework.beans.factory.aot.BeanRegistrationAotContribution;
-import org.springframework.beans.factory.aot.BeanRegistrationAotProcessor;
-import org.springframework.beans.factory.aot.BeanRegistrationCode;
-import org.springframework.beans.factory.aot.BeanRegistrationCodeFragments;
-import org.springframework.beans.factory.aot.BeanRegistrationCodeFragmentsDecorator;
-import org.springframework.beans.factory.support.RegisteredBean;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.boot.testcontainers.beans.TestcontainerBeanDefinition;
-import org.springframework.core.AttributeAccessor;
 import org.springframework.core.annotation.MergedAnnotations;
-import org.springframework.javapoet.ClassName;
-import org.springframework.javapoet.CodeBlock;
-import org.springframework.javapoet.ParameterizedTypeName;
-import org.springframework.javapoet.WildcardTypeName;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.ReflectionUtils;
 
 /**
  * {@link RootBeanDefinition} used for testcontainer bean definitions.
@@ -53,13 +34,14 @@ class TestcontainerFieldBeanDefinition extends RootBeanDefinition implements Tes
 
 	private final MergedAnnotations annotations;
 
-	TestcontainerFieldBeanDefinition(Field field, Container<?> container) {
-		this.container = container;
-		this.annotations = MergedAnnotations.from(field);
-		this.setBeanClass(container.getClass());
-		setInstanceSupplier(() -> container);
+	TestcontainerFieldBeanDefinition(ContainerField containerField) {
+		this.container = containerField.getContainer();
+		this.annotations = MergedAnnotations.from(containerField.getField());
+		setBeanClass(ContainerFactory.class);
+		setTargetType(this.container.getClass());
 		setRole(ROLE_INFRASTRUCTURE);
-		new AotMetadata(field).addTo(this);
+		getConstructorArgumentValues().addGenericArgumentValue(containerField);
+		setFactoryMethodName("create");
 	}
 
 	@Override
@@ -72,78 +54,13 @@ class TestcontainerFieldBeanDefinition extends RootBeanDefinition implements Tes
 		return this.annotations;
 	}
 
-	private record AotMetadata(Field field) {
+	static final class ContainerFactory {
 
-		private static final String ATTRIBUTE_NAME = AotMetadata.class.getName();
-
-		private void addTo(AttributeAccessor attributes) {
-			attributes.setAttribute(ATTRIBUTE_NAME, this);
+		private ContainerFactory() {
 		}
 
-		private static boolean isPresent(AttributeAccessor attributes) {
-			return attributes.getAttribute(ATTRIBUTE_NAME) != null;
-		}
-
-		private static AotMetadata get(AttributeAccessor attributes) {
-			return (AotMetadata) attributes.getAttribute(AotMetadata.ATTRIBUTE_NAME);
-		}
-	}
-
-	static class TestcontainerBeanRegistrationAotProcessor implements BeanRegistrationAotProcessor {
-
-		@Override
-		public BeanRegistrationAotContribution processAheadOfTime(RegisteredBean registeredBean) {
-			RootBeanDefinition bd = registeredBean.getMergedBeanDefinition();
-			if (AotMetadata.isPresent(bd)) {
-				return BeanRegistrationAotContribution.withCustomCodeFragments(
-						(codeFragments) -> new AotContribution(codeFragments, AotMetadata.get(bd)));
-			}
-			return null;
-		}
-
-		private static final class AotContribution extends BeanRegistrationCodeFragmentsDecorator {
-
-			private static final ParameterizedTypeName CONTAINER_TYPE = ParameterizedTypeName
-				.get(ClassName.get(Container.class), WildcardTypeName.subtypeOf(Object.class));
-
-			private static final ParameterizedTypeName CLASS_TYPE = ParameterizedTypeName
-				.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class));
-
-			private final Field field;
-
-			private AotContribution(BeanRegistrationCodeFragments delegate, AotMetadata metadata) {
-				super(delegate);
-				this.field = metadata.field();
-			}
-
-			@Override
-			public ClassName getTarget(RegisteredBean registeredBean) {
-				return ClassName.get(this.field.getDeclaringClass());
-			}
-
-			@Override
-			public CodeBlock generateInstanceSupplierCode(GenerationContext generationContext,
-					BeanRegistrationCode beanRegistrationCode, boolean allowDirectSupplierShortcut) {
-				return beanRegistrationCode.getMethods().add("getInstance", (code) -> {
-					code.addModifiers(Modifier.PRIVATE, Modifier.STATIC);
-					code.returns(CONTAINER_TYPE);
-					if (AccessControl.forMember(this.field).isAccessibleFrom(beanRegistrationCode.getClassName())) {
-						code.addStatement("return $T.$L", this.field.getDeclaringClass(), this.field.getName());
-					}
-					else {
-						generationContext.getRuntimeHints().reflection().registerField(this.field);
-						code.addStatement("$T clazz = $T.resolveClassName($S, $T.class.getClassLoader())", CLASS_TYPE,
-								ClassUtils.class, this.field.getDeclaringClass().getName(),
-								beanRegistrationCode.getClassName());
-						code.addStatement("$T field = $T.findField(clazz, $S)", Field.class, ReflectionUtils.class,
-								this.field.getName());
-						code.addStatement("$T.makeAccessible(field)", ReflectionUtils.class);
-						code.addStatement("return ($T) $T.getField(field, null)", CONTAINER_TYPE,
-								ReflectionUtils.class);
-					}
-				}).toMethodReference().toCodeBlock();
-			}
-
+		static Container<?> create(ContainerField containerField) {
+			return containerField.getContainer();
 		}
 
 	}
