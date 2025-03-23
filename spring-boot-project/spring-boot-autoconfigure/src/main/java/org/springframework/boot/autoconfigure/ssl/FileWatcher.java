@@ -35,7 +35,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -88,7 +87,7 @@ class FileWatcher implements Closeable {
 				}
 				Set<Path> actualPaths = new HashSet<>();
 				for (Path path : paths) {
-					actualPaths.add(resolveSymlinkIfNecessary(path));
+					actualPaths.addAll(resolveSymlinkIfNecessary(path));
 				}
 				this.thread.register(new Registration(actualPaths, action));
 			}
@@ -98,12 +97,30 @@ class FileWatcher implements Closeable {
 		}
 	}
 
-	private static Path resolveSymlinkIfNecessary(Path path) throws IOException {
-		if (Files.isSymbolicLink(path)) {
-			Path target = path.resolveSibling(Files.readSymbolicLink(path));
-			return resolveSymlinkIfNecessary(target);
+	// "/var/folders/06/j_v2wlh91r175j0wqm0x1m5w0000gn/T/junit-4621033960049886671/..f410b8f1-f90a-46c3-98ac-1da6c08fdac0/keystore.jks"
+	// "/var/folders/06/j_v2wlh91r175j0wqm0x1m5w0000gn/T/junit-4621033960049886671/..data/keystore.jks"
+	// "/var/folders/06/j_v2wlh91r175j0wqm0x1m5w0000gn/T/junit-4621033960049886671/..data"
+
+	private static Set<Path> resolveSymlinkIfNecessary(Path path) throws IOException {
+		Set<Path> result = new HashSet<>();
+		result.add(path.toAbsolutePath());
+		Path parent = path.getParent();
+		if (parent != null && Files.isSymbolicLink(parent)) {
+			Path target = parent.resolveSibling(Files.readSymbolicLink(parent))
+				.resolve(path.getFileName())
+				.toAbsolutePath();
+			result.add(parent.toAbsolutePath());
+			Path targetParent = target.getParent();
+			if (targetParent != null) {
+				result.add(targetParent);
+			}
+			result.addAll(resolveSymlinkIfNecessary(target));
 		}
-		return path;
+		else if (Files.isSymbolicLink(path)) {
+			Path target = path.resolveSibling(Files.readSymbolicLink(path)).toAbsolutePath();
+			result.addAll(resolveSymlinkIfNecessary(target));
+		}
+		return result;
 	}
 
 	@Override
@@ -145,11 +162,15 @@ class FileWatcher implements Closeable {
 		}
 
 		void register(Registration registration) throws IOException {
+			Set<Path> directories = new HashSet<>();
 			for (Path path : registration.paths()) {
 				if (!Files.isRegularFile(path) && !Files.isDirectory(path)) {
 					throw new IOException("'%s' is neither a file nor a directory".formatted(path));
 				}
 				Path directory = Files.isDirectory(path) ? path : path.getParent();
+				directories.add(directory);
+			}
+			for (Path directory : directories) {
 				WatchKey watchKey = register(directory);
 				this.registrations.computeIfAbsent(watchKey, (key) -> new CopyOnWriteArrayList<>()).add(registration);
 			}
@@ -223,10 +244,6 @@ class FileWatcher implements Closeable {
 	 * An individual watch registration.
 	 */
 	private record Registration(Set<Path> paths, Runnable action) {
-
-		Registration {
-			paths = paths.stream().map(Path::toAbsolutePath).collect(Collectors.toSet());
-		}
 
 		boolean manages(Path file) {
 			Path absolutePath = file.toAbsolutePath();
