@@ -291,7 +291,7 @@ class FileWatcherTests {
 	 * </ul>
 	 */
 	@Test
-	void shouldTriggerOnManyConfigMapUpdates(@TempDir Path tempDir) throws Exception {
+	void shouldTriggerOnConfigMapAtomicMoveUpdates(@TempDir Path tempDir) throws Exception {
 		Path configMap1 = createConfigMap(tempDir, "keystore.jks");
 		Path data = Files.createSymbolicLink(tempDir.resolve("..data"), configMap1);
 		Files.createSymbolicLink(tempDir.resolve("keystore.jks"), data.resolve("keystore.jks"));

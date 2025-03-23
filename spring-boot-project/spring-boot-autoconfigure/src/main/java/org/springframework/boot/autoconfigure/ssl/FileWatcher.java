@@ -85,11 +85,11 @@ class FileWatcher implements Closeable {
 					this.thread = new WatcherThread();
 					this.thread.start();
 				}
-				Set<Path> actualPaths = new HashSet<>();
+				Set<Path> registrationPaths = new HashSet<>();
 				for (Path path : paths) {
-					actualPaths.addAll(resolveSymlinkIfNecessary(path));
+					registrationPaths.addAll(getRegistrationPaths(path));
 				}
-				this.thread.register(new Registration(actualPaths, action));
+				this.thread.register(new Registration(registrationPaths, action));
 			}
 			catch (IOException ex) {
 				throw new UncheckedIOException("Failed to register paths for watching: " + paths, ex);
@@ -97,28 +97,38 @@ class FileWatcher implements Closeable {
 		}
 	}
 
-	// "/var/folders/06/j_v2wlh91r175j0wqm0x1m5w0000gn/T/junit-4621033960049886671/..f410b8f1-f90a-46c3-98ac-1da6c08fdac0/keystore.jks"
-	// "/var/folders/06/j_v2wlh91r175j0wqm0x1m5w0000gn/T/junit-4621033960049886671/..data/keystore.jks"
-	// "/var/folders/06/j_v2wlh91r175j0wqm0x1m5w0000gn/T/junit-4621033960049886671/..data"
-
-	private static Set<Path> resolveSymlinkIfNecessary(Path path) throws IOException {
+	/**
+	 * Finds all possible {@link Path} that should be registered for the given
+	 * {@link Path}. Consider the following folder structure:<pre>
+	 * .
+	 * ├── ..a72e81ff-f0e1-41d8-a19b-068d3d1d4e2f
+	 * │   ├── keystore.jks
+	 * ├── ..data -> ..a72e81ff-f0e1-41d8-a19b-068d3d1d4e2f
+	 * ├── keystore.jks -> ..data/keystore.jks
+	 * </pre> If the provided {@link Path} is {@code keystore.jks}, then the result will
+	 * be:
+	 * <ul>
+	 * <li><b>keystore.jks</b></li>
+	 * <li><b>..data/keystore.jks</b></li>
+	 * <li><b>..data</b></li>
+	 * <li><b>..a72e81ff-f0e1-41d8-a19b-068d3d1d4e2f/keystore.jks</b></li>
+	 * </ul>
+	 * @param path the path
+	 * @return the all possible {@link Path} that should be register
+	 * @throws IOException in case of any I/O exceptions
+	 */
+	private static Set<Path> getRegistrationPaths(Path path) throws IOException {
 		Set<Path> result = new HashSet<>();
 		result.add(path.toAbsolutePath());
-		Path parent = path.getParent();
-		if (parent != null && Files.isSymbolicLink(parent)) {
-			Path target = parent.resolveSibling(Files.readSymbolicLink(parent))
-				.resolve(path.getFileName())
-				.toAbsolutePath();
-			result.add(parent.toAbsolutePath());
-			Path targetParent = target.getParent();
-			if (targetParent != null) {
-				result.add(targetParent);
-			}
-			result.addAll(resolveSymlinkIfNecessary(target));
+		Path directory = path.getParent();
+		if (directory != null && Files.isSymbolicLink(directory)) {
+			result.add(directory);
+			Path target = directory.resolveSibling(Files.readSymbolicLink(directory));
+			result.addAll(getRegistrationPaths(target.resolve(path.getFileName())));
 		}
 		else if (Files.isSymbolicLink(path)) {
-			Path target = path.resolveSibling(Files.readSymbolicLink(path)).toAbsolutePath();
-			result.addAll(resolveSymlinkIfNecessary(target));
+			Path target = path.resolveSibling(Files.readSymbolicLink(path));
+			result.addAll(getRegistrationPaths(target));
 		}
 		return result;
 	}
