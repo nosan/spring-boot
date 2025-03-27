@@ -18,7 +18,6 @@ package org.springframework.boot.autoconfigure.task;
 
 import java.util.concurrent.Executor;
 
-import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.AnyNestedCondition;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -32,12 +31,11 @@ import org.springframework.boot.task.ThreadPoolTaskExecutorCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskDecorator;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.scheduling.annotation.AsyncConfigurer;
+import org.springframework.scheduling.annotation.AsyncAnnotationBeanPostProcessor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
@@ -52,16 +50,17 @@ class TaskExecutorConfigurations {
 
 	@Configuration(proxyBeanMethods = false)
 	@Conditional(OnExecutorCondition.class)
-	@Import(AsyncConfigurerConfiguration.class)
 	static class TaskExecutorConfiguration {
 
-		@Bean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME)
+		@Bean({ TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME,
+				AsyncAnnotationBeanPostProcessor.DEFAULT_TASK_EXECUTOR_BEAN_NAME })
 		@ConditionalOnThreading(Threading.VIRTUAL)
 		SimpleAsyncTaskExecutor applicationTaskExecutorVirtualThreads(SimpleAsyncTaskExecutorBuilder builder) {
 			return builder.build();
 		}
 
-		@Bean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME)
+		@Bean({ TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME,
+				AsyncAnnotationBeanPostProcessor.DEFAULT_TASK_EXECUTOR_BEAN_NAME })
 		@Lazy
 		@ConditionalOnThreading(Threading.PLATFORM)
 		ThreadPoolTaskExecutor applicationTaskExecutor(ThreadPoolTaskExecutorBuilder threadPoolTaskExecutorBuilder) {
@@ -140,24 +139,6 @@ class TaskExecutorConfigurations {
 				builder = builder.taskTerminationTimeout(shutdown.getAwaitTerminationPeriod());
 			}
 			return builder;
-		}
-
-	}
-
-	@Configuration(proxyBeanMethods = false)
-	@ConditionalOnMissingBean(AsyncConfigurer.class)
-	static class AsyncConfigurerConfiguration {
-
-		@Bean
-		@ConditionalOnMissingBean
-		AsyncConfigurer applicationTaskExecutorAsyncConfigurer(BeanFactory beanFactory) {
-			return new AsyncConfigurer() {
-				@Override
-				public Executor getAsyncExecutor() {
-					return beanFactory.getBean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME,
-							Executor.class);
-				}
-			};
 		}
 
 	}
