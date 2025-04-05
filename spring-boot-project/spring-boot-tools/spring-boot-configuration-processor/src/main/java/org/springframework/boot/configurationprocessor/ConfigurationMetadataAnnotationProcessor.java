@@ -42,6 +42,7 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic.Kind;
 
@@ -271,13 +272,27 @@ public class ConfigurationMetadataAnnotationProcessor extends AbstractProcessor 
 			new PropertyDescriptorResolver(this.metadataEnv).resolve(element, source).forEach((descriptor) -> {
 				this.metadataCollector.add(descriptor.resolveItemMetadata(prefix, this.metadataEnv));
 				if (descriptor.isNested(this.metadataEnv)) {
-					TypeElement nestedTypeElement = (TypeElement) this.metadataEnv.getTypeUtils()
-						.asElement(descriptor.getType());
-					String nestedPrefix = ConfigurationMetadata.nestedPrefix(prefix, descriptor.getName());
-					processTypeElement(nestedPrefix, nestedTypeElement, source, seen);
+					processNestedTypeElement(ConfigurationMetadata.nestedPrefix(prefix, descriptor.getName()),
+							descriptor.getType(), source, seen);
 				}
 			});
 			seen.pop();
+		}
+	}
+
+	private void processNestedTypeElement(String prefix, TypeMirror type, ExecutableElement source,
+			Deque<TypeElement> seen) {
+		TypeUtils typeUtils = this.metadataEnv.getTypeUtils();
+		if (typeUtils.isMap(type)) {
+			processNestedTypeElement(ConfigurationMetadata.nestedPrefix(prefix, "*"), typeUtils.getMapValueType(type),
+					source, seen);
+		}
+		else if (typeUtils.isCollection(type)) {
+			processNestedTypeElement(ConfigurationMetadata.nestedPrefix(prefix, "[*]"),
+					typeUtils.getCollectionElementType(type), source, seen);
+		}
+		else if (typeUtils.asElement(type) instanceof TypeElement typeElement) {
+			processTypeElement(prefix, typeElement, source, seen);
 		}
 	}
 

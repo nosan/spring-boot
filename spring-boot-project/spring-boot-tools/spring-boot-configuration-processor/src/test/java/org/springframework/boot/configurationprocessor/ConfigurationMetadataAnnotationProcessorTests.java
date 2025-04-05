@@ -18,6 +18,8 @@ package org.springframework.boot.configurationprocessor;
 
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -66,6 +68,7 @@ import org.springframework.boot.configurationsample.specific.InvalidDefaultValue
 import org.springframework.boot.configurationsample.specific.InvalidDefaultValueFloatingPointProperties;
 import org.springframework.boot.configurationsample.specific.InvalidDefaultValueNumberProperties;
 import org.springframework.boot.configurationsample.specific.InvalidDoubleRegistrationProperties;
+import org.springframework.boot.configurationsample.specific.RichProperties;
 import org.springframework.boot.configurationsample.specific.SimplePojo;
 import org.springframework.boot.configurationsample.specific.StaticAccessor;
 import org.springframework.core.test.tools.CompilationException;
@@ -590,6 +593,110 @@ class ConfigurationMetadataAnnotationProcessorTests extends AbstractMetadataGene
 		assertThat(metadata).has(Metadata.withProperty("ignored.prop2", String.class));
 		assertThat(metadata).doesNotHave(Metadata.withProperty("ignored.prop3", String.class));
 		assertThat(metadata.getIgnored()).containsExactly(ItemIgnore.forProperty("ignored.prop3"));
+	}
+
+	@Test
+	void shouldProcessRichListAndMapType() {
+		ConfigurationMetadata metadata = compile(RichProperties.class);
+		assertThat(metadata).has(Metadata.withGroup("config")
+			.ofType("org.springframework.boot.configurationsample.specific.RichProperties"));
+		assertThat(metadata).has(Metadata.withGroup("config.list")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getList()"));
+		assertThat(metadata).has(Metadata.withGroup("config.list-of-list")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getListOfList()"));
+		assertThat(metadata).has(Metadata.withGroup("config.list-of-list.[*].[*].addresses")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.Person.class)
+			.fromSourceMethod("getAddresses()"));
+		assertThat(metadata).has(Metadata.withGroup("config.list-of-map")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getListOfMap()"));
+		assertThat(metadata).has(Metadata.withGroup("config.list-of-map.[*].*.addresses")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.Person.class)
+			.fromSourceMethod("getAddresses()"));
+		assertThat(metadata).has(Metadata.withGroup("config.list-of-unresolved-generic")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getListOfUnresolvedGeneric()"));
+		assertThat(metadata).has(Metadata.withGroup("config.list-of-wildcard")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getListOfWildcard()"));
+		assertThat(metadata).has(Metadata.withGroup("config.list.[*].addresses")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.Person.class)
+			.fromSourceMethod("getAddresses()"));
+		assertThat(metadata).has(Metadata.withGroup("config.map")
+			.ofType(Map.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getMap()"));
+		assertThat(metadata).has(Metadata.withGroup("config.map-of-list")
+			.ofType(Map.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getMapOfList()"));
+		assertThat(metadata).has(Metadata.withGroup("config.map-of-list.*.[*].addresses")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.Person.class)
+			.fromSourceMethod("getAddresses()"));
+		assertThat(metadata).has(Metadata.withGroup("config.map-of-map")
+			.ofType(Map.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getMapOfMap()"));
+		assertThat(metadata).has(Metadata.withGroup("config.map-of-map.*.*.addresses")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.Person.class)
+			.fromSourceMethod("getAddresses()"));
+		assertThat(metadata).has(Metadata.withGroup("config.map-of-unresolved-generic")
+			.ofType(Map.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getMapOfUnresolvedGeneric()"));
+		assertThat(metadata).has(Metadata.withGroup("config.map-of-wildcard")
+			.ofType(Map.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getMapOfWildcard()"));
+		assertThat(metadata).has(Metadata.withGroup("config.map.*.addresses")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.Person.class)
+			.fromSourceMethod("getAddresses()"));
+		assertThat(metadata).has(Metadata.withGroup("config.raw-list")
+			.ofType(List.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getRawList()"));
+		assertThat(metadata).has(Metadata.withGroup("config.raw-map")
+			.ofType(Map.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getRawMap()"));
+		assertThat(metadata).has(Metadata.withGroup("config.custom-map")
+			.ofType(RichProperties.CustomMap.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getCustomMap()"));
+		assertThat(metadata).has(Metadata.withGroup("config.custom-list")
+			.ofType(RichProperties.CustomList.class.getName())
+			.fromSource(RichProperties.class)
+			.fromSourceMethod("getCustomList()"));
+		assertThat(metadata)
+			.has(Metadata.withProperty("config.list-of-list.[*].[*].addresses.[*].street", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.list-of-list.[*].[*].name", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.list-of-map.[*].*.addresses.[*].street", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.list-of-map.[*].*.name", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.list.[*].addresses.[*].street", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.list.[*].name", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.custom-list.[*].addresses.[*].street", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.custom-list.[*].name", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.map-of-list.*.[*].addresses.[*].street", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.map-of-list.*.[*].name", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.map-of-map.*.*.addresses.[*].street", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.map-of-map.*.*.name", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.map.*.addresses.[*].street", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.map.*.name", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.custom-map.*.addresses.[*].street", String.class));
+		assertThat(metadata).has(Metadata.withProperty("config.custom-map.*.name", String.class));
 	}
 
 }

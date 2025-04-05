@@ -145,35 +145,83 @@ class TypeUtils {
 	 * @return the element type or {@code null} if no specific type was found
 	 */
 	TypeMirror extractElementType(TypeMirror type) {
-		if (!this.env.getTypeUtils().isAssignable(type, this.collectionType)) {
-			return null;
-		}
 		return getCollectionElementType(type);
 	}
 
-	private TypeMirror getCollectionElementType(TypeMirror type) {
-		if (((TypeElement) this.types.asElement(type)).getQualifiedName().contentEquals(Collection.class.getName())) {
+	/**
+	 * Returns the element type {@code <E>} of {@link Collection}. If the type is a raw
+	 * {@link Collection} with no generic type information, the method returns the type
+	 * representing {@link Object}.
+	 * @param type the {@link TypeMirror} to inspect for an element type
+	 * @return the element {@link TypeMirror} of the {@link Collection}, or {@code null}
+	 * if given type is not {@link Collection}.
+	 */
+	TypeMirror getCollectionElementType(TypeMirror type) {
+		if (!isCollection(type)) {
+			return null;
+		}
+		if (Collection.class.getName().equals(getQualifiedName(asElement(type)))) {
 			DeclaredType declaredType = (DeclaredType) type;
+			List<? extends TypeMirror> typeArguments = declaredType.getTypeArguments();
 			// raw type, just "Collection"
-			if (declaredType.getTypeArguments().isEmpty()) {
+			if (typeArguments.isEmpty()) {
 				return this.types.getDeclaredType(this.env.getElementUtils().getTypeElement(Object.class.getName()));
 			}
 			// return type argument to Collection<...>
-			return declaredType.getTypeArguments().get(0);
+			return typeArguments.get(0);
 		}
-
 		// recursively walk the supertypes, looking for Collection<...>
-		for (TypeMirror superType : this.env.getTypeUtils().directSupertypes(type)) {
-			if (this.types.isAssignable(superType, this.collectionType)) {
-				return getCollectionElementType(superType);
+		for (TypeMirror superType : this.types.directSupertypes(type)) {
+			TypeMirror collectionElementType = getCollectionElementType(superType);
+			if (collectionElementType != null) {
+				return collectionElementType;
 			}
 		}
 		return null;
 	}
 
+	/**
+	 * Returns the value type {@code <V>} of {@link Map}. If the type is a raw {@link Map}
+	 * with no generic type information, the method returns the type representing
+	 * {@link Object}.
+	 * @param type the {@link TypeMirror} to inspect for a value type
+	 * @return the value {@link TypeMirror} of the {@link Map}, or {@code null} if given
+	 * type is not {@link Map}.
+	 */
+	TypeMirror getMapValueType(TypeMirror type) {
+		if (!isMap(type)) {
+			return null;
+		}
+		if (Map.class.getName().equals(getQualifiedName(asElement(type)))) {
+			DeclaredType declaredType = (DeclaredType) type;
+			List<? extends TypeMirror> typeArguments = declaredType.getTypeArguments();
+			// raw type, just "Map"
+			if (typeArguments.isEmpty()) {
+				return this.types.getDeclaredType(this.env.getElementUtils().getTypeElement(Object.class.getName()));
+			}
+			// return the value type parameter of Map<K, V>
+			return typeArguments.get(1);
+		}
+		// recursively walk the supertypes, looking for Map<K, V>
+		for (TypeMirror superType : this.types.directSupertypes(type)) {
+			TypeMirror mapValueType = getMapValueType(superType);
+			if (mapValueType != null) {
+				return mapValueType;
+			}
+		}
+		return null;
+	}
+
+	boolean isMap(TypeMirror type) {
+		return this.types.isAssignable(type, this.mapType);
+	}
+
+	boolean isCollection(TypeMirror type) {
+		return this.types.isAssignable(type, this.collectionType);
+	}
+
 	boolean isCollectionOrMap(TypeMirror type) {
-		return this.env.getTypeUtils().isAssignable(type, this.collectionType)
-				|| this.env.getTypeUtils().isAssignable(type, this.mapType);
+		return isCollection(type) || isMap(type);
 	}
 
 	String getJavaDoc(Element element) {
