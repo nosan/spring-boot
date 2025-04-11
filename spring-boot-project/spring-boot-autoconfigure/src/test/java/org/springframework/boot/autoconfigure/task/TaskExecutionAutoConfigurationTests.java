@@ -427,9 +427,8 @@ class TaskExecutionAutoConfigurationTests {
 
 	@Test
 	void shouldNotAliasApplicationTaskExecutorWhenBootstrapExecutorAliasIsDefined() {
-		Executor executor = Runnable::run;
-		this.contextRunner.withBean("applicationTaskExecutor", Executor.class, () -> executor)
-			.withBean("customExecutor", Executor.class, () -> createCustomAsyncExecutor("custom"))
+		this.contextRunner.withBean("applicationTaskExecutor", Executor.class, () -> createCustomAsyncExecutor("app-"))
+			.withBean("customExecutor", Executor.class, () -> createCustomAsyncExecutor("custom-"))
 			.withInitializer((context) -> context.getBeanFactory().registerAlias("customExecutor", "bootstrapExecutor"))
 			.run((context) -> {
 				assertThat(context.getBeansOfType(Executor.class)).hasSize(2);
