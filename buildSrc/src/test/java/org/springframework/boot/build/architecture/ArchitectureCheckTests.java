@@ -19,14 +19,21 @@ package org.springframework.boot.build.architecture;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.function.Consumer;
 
 import org.gradle.testkit.runner.GradleRunner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.CleanupMode;
 import org.junit.jupiter.api.io.TempDir;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.javapoet.ClassName;
+import org.springframework.javapoet.JavaFile;
+import org.springframework.javapoet.MethodSpec;
+import org.springframework.javapoet.TypeSpec;
 import org.springframework.util.FileSystemUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,9 +53,21 @@ class ArchitectureCheckTests {
 	private Path buildFile;
 
 	@BeforeEach
-	void setup(@TempDir Path projectDir) {
+	void setup(@TempDir(cleanup = CleanupMode.ON_SUCCESS) Path projectDir) throws IOException {
 		this.projectDir = projectDir;
 		this.buildFile = projectDir.resolve("build.gradle");
+		Files.writeString(this.buildFile, """
+				plugins {
+					 id 'java'
+					 id 'org.springframework.boot.architecture'
+				}
+				repositories {
+					mavenCentral()
+				}
+				java {
+					sourceCompatibility = 17
+				}
+				""");
 	}
 
 	@Test
@@ -162,34 +181,22 @@ class ArchitectureCheckTests {
 
 	@Test
 	void whenBeanPostProcessorBeanMethodIsNotStaticWithExternalClass() throws IOException {
-		Files.writeString(this.buildFile, """
-				plugins {
-					id 'java'
-					id 'org.springframework.boot.architecture'
-				}
-				repositories {
-					mavenCentral()
-				}
-				java {
-					sourceCompatibility = 17
-				}
+		appendToBuildFile("""
 				dependencies {
 					implementation("org.springframework.integration:spring-integration-jmx:6.3.9")
 				}
 				""");
-		Path testClass = this.projectDir.resolve("src/main/java/boot/architecture/bpp/external/TestClass.java");
-		Files.createDirectories(testClass.getParent());
-		Files.writeString(testClass, """
-				package org.springframework.boot.build.architecture.bpp.external;
-				import org.springframework.context.annotation.Bean;
-				import org.springframework.integration.monitor.IntegrationMBeanExporter;
-				public class TestClass {
-					@Bean
-					IntegrationMBeanExporter integrationMBeanExporter() {
-						return new IntegrationMBeanExporter();
-					}
-				}
-				""");
+		JavaFile
+			.builder("org.springframework.boot.build.architecture.bpp.external", TypeSpec.classBuilder("TestClass")
+				.addMethod(MethodSpec.methodBuilder("integrationMBeanExporter")
+					.addAnnotation(Bean.class)
+					.returns(ClassName.get("org.springframework.integration.monitor", "IntegrationMBeanExporter"))
+					.addCode("return new IntegrationMBeanExporter();")
+					.build())
+				.build())
+			.build()
+			.writeTo(this.projectDir.resolve("src/main/java"));
+
 		runGradle(shouldHaveFailureReportWithMessage("methods that are annotated with @Bean and have raw return "
 				+ "type assignable to org.springframework.beans.factory.config.BeanPostProcessor "));
 	}
@@ -214,18 +221,16 @@ class ArchitectureCheckTests {
 		ClassPathResource classPathResource = new ClassPathResource(path, getClass());
 		FileSystemUtils.copyRecursively(classPathResource.getFile().toPath(),
 				this.projectDir.resolve("classes").resolve(classPathResource.getPath()));
-		Files.writeString(this.buildFile, """
-				plugins {
-					 id 'java'
-					 id 'org.springframework.boot.architecture'
-				}
+		appendToBuildFile("""
 				sourceSets {
-					main {
-						  output.classesDirs.setFrom(file("classes"))
-					  }
+				    main.output.classesDirs.setFrom(file("classes"))
 				}
 				""");
 		runGradle(callback);
+	}
+
+	private void appendToBuildFile(String content) throws IOException {
+		Files.writeString(this.buildFile, content, StandardOpenOption.APPEND);
 	}
 
 	private void runGradle(Consumer<GradleRunner> callback) {
