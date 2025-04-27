@@ -152,7 +152,6 @@ public abstract class ArchitectureCheck extends DefaultTask {
 		return this.classes.getAsFileTree();
 	}
 
-	@InputFiles
 	@Classpath
 	public abstract ConfigurableFileCollection getCompileClasspath();
 
