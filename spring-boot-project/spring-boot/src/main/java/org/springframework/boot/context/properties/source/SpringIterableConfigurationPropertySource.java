@@ -264,7 +264,8 @@ class SpringIterableConfigurationPropertySource extends SpringConfigurationPrope
 					(data != null) ? data.mappings() : null, size);
 			Map<String, ConfigurationPropertyName> reverseMappings = cloneOrCreate(
 					(data != null) ? data.reverseMappings() : null, size);
-			Set<ConfigurationPropertyName> descendants = (!this.captureDescendants) ? null : new HashSet<>();
+			Set<ConfigurationPropertyName> descendants = (!this.captureDescendants) ? null
+					: cloneOrCreate((data != null) ? data.descendants() : null, size);
 			Map<String, Object> systemEnvironmentCopy = (!this.systemEnvironmentSource) ? null
 					: copySource(propertySource);
 			for (PropertyMapper propertyMapper : this.mappers) {
@@ -293,6 +294,10 @@ class SpringIterableConfigurationPropertySource extends SpringConfigurationPrope
 
 		private <K, V> Map<K, V> cloneOrCreate(Map<K, V> source, int size) {
 			return (source != null) ? new LinkedHashMap<>(source) : new LinkedHashMap<>(size);
+		}
+
+		private <V> Set<V> cloneOrCreate(Set<V> source, int size) {
+			return (source != null) ? new HashSet<>(source) : new HashSet<>(size);
 		}
 
 		private void addParents(Set<ConfigurationPropertyName> descendants, ConfigurationPropertyName name) {
