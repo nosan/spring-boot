@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,30 @@
 
 package org.springframework.boot.actuate.autoconfigure.health;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import org.springframework.boot.actuate.autoconfigure.endpoint.EndpointAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.endpoint.condition.EndpointExposureOutcomeContributor;
+import org.springframework.boot.actuate.autoconfigure.endpoint.expose.EndpointExposure;
+import org.springframework.boot.actuate.autoconfigure.endpoint.expose.IncludeExcludeEndpointFilter;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.health.HealthEndpointConfiguration.HealthEndpointGroupMembershipValidator.NoSuchHealthContributorException;
 import org.springframework.boot.actuate.autoconfigure.health.HealthEndpointReactiveWebExtensionConfiguration.WebFluxAdditionalHealthEndpointPathsConfiguration;
 import org.springframework.boot.actuate.autoconfigure.health.HealthEndpointWebExtensionConfiguration.JerseyAdditionalHealthEndpointPathsConfiguration;
 import org.springframework.boot.actuate.autoconfigure.health.HealthEndpointWebExtensionConfiguration.MvcAdditionalHealthEndpointPathsConfiguration;
 import org.springframework.boot.actuate.endpoint.ApiVersion;
+import org.springframework.boot.actuate.endpoint.EndpointId;
+import org.springframework.boot.actuate.endpoint.ExposableEndpoint;
 import org.springframework.boot.actuate.endpoint.SecurityContext;
 import org.springframework.boot.actuate.endpoint.web.WebEndpointResponse;
 import org.springframework.boot.actuate.endpoint.web.WebServerNamespace;
@@ -53,13 +63,17 @@ import org.springframework.boot.actuate.health.Status;
 import org.springframework.boot.actuate.health.StatusAggregator;
 import org.springframework.boot.actuate.health.SystemHealth;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.autoconfigure.condition.ConditionMessage.Builder;
+import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
 import org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.ReactiveWebApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.boot.testsupport.classpath.resources.WithResource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.web.servlet.DispatcherServlet;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -343,12 +357,13 @@ class HealthEndpointAutoConfigurationTests {
 	}
 
 	@Test
+	@WithCustomEndpointExposureOutcomeContributor
 	void additionalHealthEndpointsPathsTolerateHealthEndpointThatIsNotWebExposed() {
 		this.contextRunner
 			.withConfiguration(AutoConfigurations.of(DispatcherServletAutoConfiguration.class,
 					EndpointAutoConfiguration.class, WebEndpointAutoConfiguration.class))
 			.withPropertyValues("management.endpoints.web.exposure.exclude=*",
-					"management.endpoints.cloudfoundry.exposure.include=*", "spring.main.cloud-platform=cloud_foundry")
+					"management.endpoints.custom.exposure.include=*")
 			.run((context) -> {
 				assertThat(context).hasSingleBean(MvcAdditionalHealthEndpointPathsConfiguration.class);
 				assertThat(context).hasNotFailed();
@@ -356,13 +371,15 @@ class HealthEndpointAutoConfigurationTests {
 	}
 
 	@Test
+	@WithCustomEndpointExposureOutcomeContributor
 	void additionalJerseyHealthEndpointsPathsTolerateHealthEndpointThatIsNotWebExposed() {
+		ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
 		this.contextRunner
 			.withConfiguration(
 					AutoConfigurations.of(EndpointAutoConfiguration.class, WebEndpointAutoConfiguration.class))
-			.withClassLoader(new FilteredClassLoader(DispatcherServlet.class))
+			.withClassLoader(new FilteredClassLoader(contextClassLoader, DispatcherServlet.class))
 			.withPropertyValues("management.endpoints.web.exposure.exclude=*",
-					"management.endpoints.cloudfoundry.exposure.include=*", "spring.main.cloud-platform=cloud_foundry")
+					"management.endpoints.custom.exposure.include=*")
 			.run((context) -> {
 				assertThat(context).hasSingleBean(JerseyAdditionalHealthEndpointPathsConfiguration.class);
 				assertThat(context).hasNotFailed();
@@ -370,12 +387,13 @@ class HealthEndpointAutoConfigurationTests {
 	}
 
 	@Test
+	@WithCustomEndpointExposureOutcomeContributor
 	void additionalReactiveHealthEndpointsPathsTolerateHealthEndpointThatIsNotWebExposed() {
 		this.reactiveContextRunner
 			.withConfiguration(
 					AutoConfigurations.of(EndpointAutoConfiguration.class, WebEndpointAutoConfiguration.class))
 			.withPropertyValues("management.endpoints.web.exposure.exclude=*",
-					"management.endpoints.cloudfoundry.exposure.include=*", "spring.main.cloud-platform=cloud_foundry")
+					"management.endpoints.custom.exposure.include=*")
 			.run((context) -> {
 				assertThat(context).hasSingleBean(WebFluxAdditionalHealthEndpointPathsConfiguration.class);
 				assertThat(context).hasNotFailed();
@@ -501,6 +519,36 @@ class HealthEndpointAutoConfigurationTests {
 		public HealthEndpointGroups postProcessHealthEndpointGroups(HealthEndpointGroups groups) {
 			given(groups.get("test")).willThrow(new RuntimeException("postprocessed"));
 			return groups;
+		}
+
+	}
+
+	@WithResource(name = "META-INF/spring.factories",
+			content = "org.springframework.boot.actuate.autoconfigure.endpoint.condition.EndpointExposureOutcomeContributor="
+					+ "org.springframework.boot.actuate.autoconfigure.health.HealthEndpointAutoConfigurationTests$CustomEndpointExposureOutcomeContributor")
+	@Target(ElementType.METHOD)
+	@Retention(RetentionPolicy.RUNTIME)
+	private @interface WithCustomEndpointExposureOutcomeContributor {
+
+	}
+
+	static class CustomEndpointExposureOutcomeContributor implements EndpointExposureOutcomeContributor {
+
+		private final IncludeExcludeEndpointFilter<?> filter;
+
+		CustomEndpointExposureOutcomeContributor(Environment environment) {
+			this.filter = new IncludeExcludeEndpointFilter<>(ExposableEndpoint.class, environment,
+					"management.endpoints.custom.exposure");
+		}
+
+		@Override
+		public ConditionOutcome getExposureOutcome(EndpointId endpointId, Set<EndpointExposure> exposures,
+				Builder message) {
+			if (exposures.contains(EndpointExposure.WEB) && this.filter.match(endpointId)) {
+				return ConditionOutcome
+					.match(message.because("marked as exposed by a 'management.endpoints.custom.exposure' property"));
+			}
+			return null;
 		}
 
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ class OnAvailableEndpointCondition extends SpringBootCondition {
 			.get(ConditionalOnAvailableEndpoint.class);
 		Class<?> target = getTarget(context, metadata, conditionAnnotation);
 		MergedAnnotation<Endpoint> endpointAnnotation = getEndpointAnnotation(target);
-		return getMatchOutcome(environment, conditionAnnotation, endpointAnnotation);
+		return getMatchOutcome(environment, context.getClassLoader(), conditionAnnotation, endpointAnnotation);
 	}
 
 	private Class<?> getTarget(ConditionContext context, AnnotatedTypeMetadata metadata,
@@ -109,7 +109,7 @@ class OnAvailableEndpointCondition extends SpringBootCondition {
 		return getEndpointAnnotation(extension.getClass("endpoint"));
 	}
 
-	private ConditionOutcome getMatchOutcome(Environment environment,
+	private ConditionOutcome getMatchOutcome(Environment environment, ClassLoader classLoader,
 			MergedAnnotation<ConditionalOnAvailableEndpoint> conditionAnnotation,
 			MergedAnnotation<Endpoint> endpointAnnotation) {
 		ConditionMessage.Builder message = ConditionMessage.forCondition(ConditionalOnAvailableEndpoint.class);
@@ -118,8 +118,8 @@ class OnAvailableEndpointCondition extends SpringBootCondition {
 		if (!accessOutcome.isMatch()) {
 			return accessOutcome;
 		}
-		ConditionOutcome exposureOutcome = getExposureOutcome(environment, conditionAnnotation, endpointAnnotation,
-				endpointId, message);
+		ConditionOutcome exposureOutcome = getExposureOutcome(environment, classLoader, conditionAnnotation,
+				endpointAnnotation, endpointId, message);
 		return (exposureOutcome != null) ? exposureOutcome : ConditionOutcome.noMatch(message.because("not exposed"));
 	}
 
@@ -137,11 +137,12 @@ class OnAvailableEndpointCondition extends SpringBootCondition {
 			.accessFor(endpointId, defaultAccess);
 	}
 
-	private ConditionOutcome getExposureOutcome(Environment environment,
+	private ConditionOutcome getExposureOutcome(Environment environment, ClassLoader classLoader,
 			MergedAnnotation<ConditionalOnAvailableEndpoint> conditionAnnotation,
 			MergedAnnotation<Endpoint> endpointAnnotation, EndpointId endpointId, Builder message) {
 		Set<EndpointExposure> exposures = getExposures(conditionAnnotation);
-		Set<EndpointExposureOutcomeContributor> outcomeContributors = getExposureOutcomeContributors(environment);
+		Set<EndpointExposureOutcomeContributor> outcomeContributors = getExposureOutcomeContributors(environment,
+				classLoader);
 		for (EndpointExposureOutcomeContributor outcomeContributor : outcomeContributors) {
 			ConditionOutcome outcome = outcomeContributor.getExposureOutcome(endpointId, exposures, message);
 			if (outcome != null && outcome.isMatch()) {
@@ -166,7 +167,8 @@ class OnAvailableEndpointCondition extends SpringBootCondition {
 		return result;
 	}
 
-	private Set<EndpointExposureOutcomeContributor> getExposureOutcomeContributors(Environment environment) {
+	private Set<EndpointExposureOutcomeContributor> getExposureOutcomeContributors(Environment environment,
+			ClassLoader classLoader) {
 		Set<EndpointExposureOutcomeContributor> contributors = exposureOutcomeContributorsCache.get(environment);
 		if (contributors == null) {
 			contributors = new LinkedHashSet<>();
@@ -174,15 +176,16 @@ class OnAvailableEndpointCondition extends SpringBootCondition {
 			if (environment.getProperty(JMX_ENABLED_KEY, Boolean.class, false)) {
 				contributors.add(new StandardExposureOutcomeContributor(environment, EndpointExposure.JMX));
 			}
-			contributors.addAll(loadExposureOutcomeContributors(environment));
+			contributors.addAll(loadExposureOutcomeContributors(environment, classLoader));
 			exposureOutcomeContributorsCache.put(environment, contributors);
 		}
 		return contributors;
 	}
 
-	private List<EndpointExposureOutcomeContributor> loadExposureOutcomeContributors(Environment environment) {
+	private List<EndpointExposureOutcomeContributor> loadExposureOutcomeContributors(Environment environment,
+			ClassLoader classLoader) {
 		ArgumentResolver argumentResolver = ArgumentResolver.of(Environment.class, environment);
-		return SpringFactoriesLoader.forDefaultResourceLocation()
+		return SpringFactoriesLoader.forDefaultResourceLocation(classLoader)
 			.load(EndpointExposureOutcomeContributor.class, argumentResolver);
 	}
 
