@@ -42,6 +42,7 @@ class ResourcesClassLoader extends ClassLoader implements SmartClassLoader {
 
 	@Override
 	public URL getResource(String name) {
+		System.out.println("ResourcesClassLoader.getResource: " + name);
 		Resource resource = this.resources.find(name);
 		return (resource != null) ? urlOf(resource) : getParent().getResource(name);
 	}
