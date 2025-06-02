@@ -122,7 +122,6 @@ gradleProperties = IO.read('gradle.properties')
 springBuildType = gradleProperties.match(/^spring\.build-type\s?=\s?(.*)$/)
 repository = (springBuildType && springBuildType[1] != 'oss') ? "nosan/spring-boot-#{springBuildType[1]}" : "nosan/spring-boot";
 $log.debug "Targeting repository #{repository}"
-repository = 'nosan/spring-boot'
 
 forward_merges.each do |forward_merge|
   existing_issue = get_issue(username, password, repository, forward_merge.issue)
