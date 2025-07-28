@@ -20,10 +20,13 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 
 import jakarta.servlet.Filter;
+import jakarta.servlet.annotation.WebInitParam;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -31,6 +34,7 @@ import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.web.servlet.AbstractFilterRegistrationBean;
 import org.springframework.boot.web.servlet.DelegatingFilterProxyRegistrationBean;
+import org.springframework.boot.web.servlet.FilterRegistration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.RegistrationBean;
 import org.springframework.boot.web.servlet.ServletContextInitializerBeans;
@@ -321,15 +325,36 @@ public class SpringBootMockMvcBuilderCustomizer implements MockMvcBuilderCustomi
 
 		@Override
 		protected void addAdaptableBeans(ListableBeanFactory beanFactory) {
-			addAsRegistrationBean(beanFactory, Filter.class, new FilterRegistrationBeanAdapter());
+			addAsRegistrationBean(beanFactory, Filter.class, new FilterRegistrationBeanAdapter(beanFactory));
 		}
 
 		private static final class FilterRegistrationBeanAdapter implements RegistrationBeanAdapter<Filter> {
+
+			private final ListableBeanFactory beanFactory;
+
+			private FilterRegistrationBeanAdapter(ListableBeanFactory beanFactory) {
+				this.beanFactory = beanFactory;
+			}
 
 			@Override
 			public RegistrationBean createRegistrationBean(String name, Filter source, int totalNumberOfSourceBeans) {
 				FilterRegistrationBean<Filter> bean = new FilterRegistrationBean<>(source);
 				bean.setName(name);
+				FilterRegistration annotation = this.beanFactory.findAnnotationOnBean(name, FilterRegistration.class);
+				if (annotation != null) {
+					bean.setEnabled(annotation.enabled());
+					bean.setOrder(annotation.order());
+					if (StringUtils.hasText(annotation.name())) {
+						bean.setName(annotation.name());
+					}
+					if (annotation.dispatcherTypes().length > 0) {
+						bean.setDispatcherTypes(EnumSet.copyOf(Arrays.asList(annotation.dispatcherTypes())));
+					}
+					for (WebInitParam param : annotation.initParameters()) {
+						bean.addInitParameter(param.name(), param.value());
+					}
+					bean.setUrlPatterns(Arrays.asList(annotation.urlPatterns()));
+				}
 				return bean;
 			}
 
