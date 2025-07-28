@@ -330,18 +330,25 @@ public class ServletContextInitializerBeans extends AbstractCollection<ServletCo
 	}
 
 	/**
-	 * {@link RegistrationBeanAdapter} for {@link Filter} beans.
+	 * {@link RegistrationBeanAdapter} implementation for {@link Filter} beans.
+	 * <p>
+	 * <b>NOTE:</b> A similar implementation is used in
+	 * {@code SpringBootMockMvcBuilderCustomizer} for registering
+	 * {@code @FilterRegistration} beans with {@code @MockMvc}. If you modify this class,
+	 * please also update {@code SpringBootMockMvcBuilderCustomizer} if needed.
+	 * </p>
 	 */
-	private static class FilterRegistrationBeanAdapter implements RegistrationBeanAdapter<Filter> {
+	protected static class FilterRegistrationBeanAdapter implements RegistrationBeanAdapter<Filter> {
 
 		private final ListableBeanFactory beanFactory;
 
-		FilterRegistrationBeanAdapter(ListableBeanFactory beanFactory) {
+		protected FilterRegistrationBeanAdapter(ListableBeanFactory beanFactory) {
 			this.beanFactory = beanFactory;
 		}
 
 		@Override
-		public RegistrationBean createRegistrationBean(String beanName, Filter source, int totalNumberOfSourceBeans) {
+		public final RegistrationBean createRegistrationBean(String beanName, Filter source,
+				int totalNumberOfSourceBeans) {
 			FilterRegistrationBean<Filter> bean = new FilterRegistrationBean<>(source);
 			bean.setName(beanName);
 			FilterRegistration registrationAnnotation = this.beanFactory.findAnnotationOnBean(beanName,
@@ -354,7 +361,7 @@ public class ServletContextInitializerBeans extends AbstractCollection<ServletCo
 			return bean;
 		}
 
-		private void configureFromAnnotation(FilterRegistrationBean<Filter> bean, FilterRegistration registration,
+		protected void configureFromAnnotation(FilterRegistrationBean<Filter> bean, FilterRegistration registration,
 				Order order) {
 			bean.setEnabled(registration.enabled());
 			bean.setOrder(order.value());
