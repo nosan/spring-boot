@@ -17,11 +17,13 @@
 package org.springframework.boot.websocket.autoconfigure.servlet;
 
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.Executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jspecify.annotations.Nullable;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.LazyInitializationExcludeFilter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -33,7 +35,6 @@ import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguratio
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.messaging.converter.ByteArrayMessageConverter;
 import org.springframework.messaging.converter.DefaultContentTypeResolver;
 import org.springframework.messaging.converter.MessageConverter;
@@ -65,20 +66,12 @@ public final class WebSocketMessagingAutoConfiguration {
 
 		private final ObjectMapper objectMapper;
 
-		private final @Nullable AsyncTaskExecutor executor;
+		private final @Nullable Executor executor;
 
 		WebSocketMessageConverterConfiguration(ObjectMapper objectMapper,
-				Map<String, AsyncTaskExecutor> taskExecutors) {
+				@Qualifier(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME) ObjectProvider<Executor> applicationTaskExecutor) {
 			this.objectMapper = objectMapper;
-			this.executor = determineAsyncTaskExecutor(taskExecutors);
-		}
-
-		private static @Nullable AsyncTaskExecutor determineAsyncTaskExecutor(
-				Map<String, AsyncTaskExecutor> taskExecutors) {
-			if (taskExecutors.size() == 1) {
-				return taskExecutors.values().iterator().next();
-			}
-			return taskExecutors.get(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME);
+			this.executor = applicationTaskExecutor.getIfAvailable();
 		}
 
 		@Override

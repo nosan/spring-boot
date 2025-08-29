@@ -34,10 +34,10 @@ import org.springframework.boot.data.jpa.autoconfigure.domain.country.Country;
 import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
 import org.springframework.boot.jdbc.autoconfigure.EmbeddedDataSourceConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.data.jpa.util.JpaMetamodel;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
@@ -93,36 +93,47 @@ abstract class AbstractJpaRepositoriesAutoConfigurationTests {
 			.withConfiguration(
 					AutoConfigurations.of(TaskExecutionAutoConfiguration.class, TaskSchedulingAutoConfiguration.class))
 			.withPropertyValues("spring.data.jpa.repositories.bootstrap-mode=lazy")
-			.run((context) -> assertThat(
-					context.getBean(LocalContainerEntityManagerFactoryBean.class).getBootstrapExecutor())
-				.isEqualTo(context.getBean("applicationTaskExecutor")));
+			.run((context) -> {
+				assertThat(context.getBeansOfType(TaskExecutor.class)).hasSize(2);
+				assertThat(context.getBean(LocalContainerEntityManagerFactoryBean.class).getBootstrapExecutor())
+					.isEqualTo(context.getBean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME));
+			});
 	}
 
 	@Test
-	void whenBootstrapModeIsLazyWithSingleAsyncExecutorBootstrapExecutorIsConfigured() {
-		this.contextRunner.withUserConfiguration(SingleAsyncTaskExecutorConfiguration.class)
+	void whenBootstrapModeIsLazyWithApplicationTaskExecutorBootstrapExecutorIsConfigured() {
+		this.contextRunner.withUserConfiguration(TestConfiguration.class)
+			.withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class))
 			.withPropertyValues("spring.data.jpa.repositories.bootstrap-mode=lazy")
 			.run((context) -> assertThat(
 					context.getBean(LocalContainerEntityManagerFactoryBean.class).getBootstrapExecutor())
-				.isEqualTo(context.getBean("testAsyncTaskExecutor")));
+				.isEqualTo(context.getBean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME)));
+	}
+
+	@Test
+	void whenBootstrapModeIsLazyWithCustomTaskExecutorBootstrapExecutorIsNotConfigured() {
+		this.contextRunner.withUserConfiguration(TestConfiguration.class)
+			.withBean(SimpleAsyncTaskExecutor.class)
+			.withPropertyValues("spring.data.jpa.repositories.bootstrap-mode=lazy")
+			.run((context) -> assertThat(
+					context.getBean(LocalContainerEntityManagerFactoryBean.class).getBootstrapExecutor())
+				.isNull());
 	}
 
 	@Test
 	void whenBootstrapModeIsDeferredBootstrapExecutorIsConfigured() {
 		this.contextRunner.withUserConfiguration(MultipleAsyncTaskExecutorConfiguration.class)
-			.withConfiguration(
-					AutoConfigurations.of(TaskExecutionAutoConfiguration.class, TaskSchedulingAutoConfiguration.class))
+			.withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class))
 			.withPropertyValues("spring.data.jpa.repositories.bootstrap-mode=deferred")
 			.run((context) -> assertThat(
 					context.getBean(LocalContainerEntityManagerFactoryBean.class).getBootstrapExecutor())
-				.isEqualTo(context.getBean("applicationTaskExecutor")));
+				.isEqualTo(context.getBean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME)));
 	}
 
 	@Test
 	void whenBootstrapModeIsDefaultBootstrapExecutorIsNotConfigured() {
 		this.contextRunner.withUserConfiguration(MultipleAsyncTaskExecutorConfiguration.class)
-			.withConfiguration(
-					AutoConfigurations.of(TaskExecutionAutoConfiguration.class, TaskSchedulingAutoConfiguration.class))
+			.withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class))
 			.withPropertyValues("spring.data.jpa.repositories.bootstrap-mode=default")
 			.run((context) -> assertThat(
 					context.getBean(LocalContainerEntityManagerFactoryBean.class).getBootstrapExecutor())
@@ -132,8 +143,7 @@ abstract class AbstractJpaRepositoriesAutoConfigurationTests {
 	@Test
 	void bootstrapModeIsDefaultByDefault() {
 		this.contextRunner.withUserConfiguration(MultipleAsyncTaskExecutorConfiguration.class)
-			.withConfiguration(
-					AutoConfigurations.of(TaskExecutionAutoConfiguration.class, TaskSchedulingAutoConfiguration.class))
+			.withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class))
 			.run((context) -> assertThat(
 					context.getBean(LocalContainerEntityManagerFactoryBean.class).getBootstrapExecutor())
 				.isNull());
@@ -156,17 +166,6 @@ abstract class AbstractJpaRepositoriesAutoConfigurationTests {
 	@EnableScheduling
 	@Import(TestConfiguration.class)
 	static class MultipleAsyncTaskExecutorConfiguration {
-
-	}
-
-	@Configuration(proxyBeanMethods = false)
-	@Import(TestConfiguration.class)
-	static class SingleAsyncTaskExecutorConfiguration {
-
-		@Bean
-		SimpleAsyncTaskExecutor testAsyncTaskExecutor() {
-			return new SimpleAsyncTaskExecutor();
-		}
 
 	}
 

@@ -18,10 +18,8 @@ The auto-configured javadoc:org.springframework.core.task.AsyncTaskExecutor[] is
 While this approach works in most scenarios, Spring Boot allows you to override the auto-configured javadoc:org.springframework.core.task.AsyncTaskExecutor[].
 By default, when a custom javadoc:java.util.concurrent.Executor[] bean is registered, the auto-configured javadoc:org.springframework.core.task.AsyncTaskExecutor[] backs off, and the custom javadoc:java.util.concurrent.Executor[] is used for regular task execution (via javadoc:org.springframework.scheduling.annotation.EnableAsync[format=annotation]).
 
-However, Spring MVC, Spring WebFlux, and Spring GraphQL all require a bean named `applicationTaskExecutor`.
-For Spring MVC and Spring WebFlux, this bean must be of type javadoc:org.springframework.core.task.AsyncTaskExecutor[], whereas Spring GraphQL does not enforce this type requirement.
-
-Spring WebSocket and JPA will use javadoc:org.springframework.core.task.AsyncTaskExecutor[] if either a single bean of this type is available or a bean named `applicationTaskExecutor` is defined.
+However, Spring MVC, Spring WebFlux, Spring WebSocket, Spring GraphQL, and JPA all require a bean named `applicationTaskExecutor`.
+For Spring MVC, Spring WebFlux, and JPA, this bean must be of type javadoc:org.springframework.core.task.AsyncTaskExecutor[], whereas Spring GraphQL and Spring WebSocket do not enforce this type requirement.
 
 Finally, the boostrap executor of the `ApplicationContext` uses a bean named `applicationTaskExecutor` unless a bean named `bootstrapExecutor` is defined.
 
@@ -37,14 +35,18 @@ The `applicationTaskExecutor` bean will also be used for regular task execution 
 [WARNING]
 ====
 If neither the auto-configured `AsyncTaskExecutor` nor the `applicationTaskExecutor` bean is defined, the application defaults to a bean named `taskExecutor` for regular task execution (javadoc:org.springframework.scheduling.annotation.EnableAsync[format=annotation]), following Spring Framework's behavior.
-However, this bean will not be used for Spring MVC, Spring WebFlux, Spring GraphQL.
-It could, however, be used for Spring WebSocket or JPA if the bean's type is javadoc:org.springframework.core.task.AsyncTaskExecutor[].
+However, this bean will not be used for Spring MVC, Spring WebFlux, Spring WebSocket, Spring GraphQL, JPA, and background initialization of beans.
 ====
 
-If your application needs multiple `Executor` beans for different integrations, such as one for regular task execution with javadoc:org.springframework.scheduling.annotation.EnableAsync[format=annotation] and other for Spring MVC, Spring WebFlux, Spring WebSocket and JPA, you can configure them as follows.
+
+If your application needs multiple `Executor` beans for different integrations, such as one for regular task execution with javadoc:org.springframework.scheduling.annotation.EnableAsync[format=annotation] and other for Spring MVC, Spring WebFlux, Spring WebSocket, Spring GraphQL, JPA, and background initialization of beans, you can configure them as follows.
 
 include-code::multiple/MyTaskExecutorConfiguration[]
 
+[WARNING]
+====
+Keep in mind that if you define a custom javadoc:java.util.concurrent.Executor[] bean with naming it `bootstrapExecutor`, it will be used for background initialization of beans instead of `applicationTaskExecutor`.
+====
 [TIP]
 ====
 The auto-configured javadoc:org.springframework.boot.task.ThreadPoolTaskExecutorBuilder[] or javadoc:org.springframework.boot.task.SimpleAsyncTaskExecutorBuilder[] allow you to easily create instances of type javadoc:org.springframework.core.task.AsyncTaskExecutor[] that replicate the default behavior of auto-configuration.

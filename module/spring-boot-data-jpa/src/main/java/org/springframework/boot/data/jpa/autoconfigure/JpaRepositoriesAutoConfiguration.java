@@ -16,12 +16,10 @@
 
 package org.springframework.boot.data.jpa.autoconfigure;
 
-import java.util.Map;
-
 import javax.sql.DataSource;
 
-import org.jspecify.annotations.Nullable;
-
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.LazyInitializationExcludeFilter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -85,25 +83,13 @@ public final class JpaRepositoriesAutoConfiguration {
 	@Bean
 	@Conditional(BootstrapExecutorCondition.class)
 	EntityManagerFactoryBuilderCustomizer entityManagerFactoryBootstrapExecutorCustomizer(
-			Map<String, AsyncTaskExecutor> taskExecutors) {
-		return (builder) -> {
-			AsyncTaskExecutor bootstrapExecutor = determineBootstrapExecutor(taskExecutors);
-			if (bootstrapExecutor != null) {
-				builder.setBootstrapExecutor(bootstrapExecutor);
-			}
-		};
+			@Qualifier(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME) ObjectProvider<AsyncTaskExecutor> applicationTaskExecutor) {
+		return (builder) -> applicationTaskExecutor.ifAvailable(builder::setBootstrapExecutor);
 	}
 
 	@Bean
 	static LazyInitializationExcludeFilter eagerJpaMetamodelCacheCleanup() {
 		return (name, definition, type) -> "org.springframework.data.jpa.util.JpaMetamodelCacheCleanup".equals(name);
-	}
-
-	private @Nullable AsyncTaskExecutor determineBootstrapExecutor(Map<String, AsyncTaskExecutor> taskExecutors) {
-		if (taskExecutors.size() == 1) {
-			return taskExecutors.values().iterator().next();
-		}
-		return taskExecutors.get(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME);
 	}
 
 	private static final class BootstrapExecutorCondition extends AnyNestedCondition {

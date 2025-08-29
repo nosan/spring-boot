@@ -19,15 +19,12 @@ package org.springframework.boot.websocket.autoconfigure.servlet;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.tomcat.websocket.WsWebSocketContainer;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.AfterEach;
@@ -51,7 +48,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.messaging.converter.CompositeMessageConverter;
 import org.springframework.messaging.converter.MessageConverter;
@@ -132,6 +128,8 @@ class WebSocketMessagingAutoConfigurationTests {
 
 	@Test
 	void customizedConverterTypesMatchDefaultConverterTypes() {
+		this.context.register(WebSocketMessagingConfiguration.class);
+		this.context.refresh();
 		List<MessageConverter> customizedConverters = getCustomizedConverters();
 		List<MessageConverter> defaultConverters = getDefaultConverters();
 		assertThat(customizedConverters).hasSameSizeAs(defaultConverters);
@@ -143,25 +141,53 @@ class WebSocketMessagingAutoConfigurationTests {
 	}
 
 	@Test
-	void predefinedThreadExecutorIsSelectedForInboundChannel() {
-		AsyncTaskExecutor expectedExecutor = new SimpleAsyncTaskExecutor();
+	void customTaskExecutorShouldNotBeUsedForInboundChannel() {
+		this.context.register(WebSocketMessagingConfiguration.class);
+		this.context.registerBean("customExecutor", SimpleAsyncTaskExecutor.class);
+		this.context.refresh();
 		ChannelRegistration registration = new ChannelRegistration();
-		WebSocketMessageConverterConfiguration configuration = new WebSocketMessagingAutoConfiguration.WebSocketMessageConverterConfiguration(
-				new ObjectMapper(),
-				Map.of(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME, expectedExecutor));
-		configuration.configureClientInboundChannel(registration);
-		assertThat(registration).extracting("executor").isEqualTo(expectedExecutor);
+		this.context.getBean(WebSocketMessagingAutoConfiguration.WebSocketMessageConverterConfiguration.class)
+			.configureClientInboundChannel(registration);
+		assertThat(registration).extracting("executor").isNull();
 	}
 
 	@Test
-	void predefinedThreadExecutorIsSelectedForOutboundChannel() {
-		AsyncTaskExecutor expectedExecutor = new SimpleAsyncTaskExecutor();
+	void customTaskExecutorShouldNotBeUsedForOutboundChannel() {
+		this.context.register(WebSocketMessagingConfiguration.class);
+		this.context.registerBean("customExecutor", SimpleAsyncTaskExecutor.class);
+		this.context.refresh();
 		ChannelRegistration registration = new ChannelRegistration();
-		WebSocketMessagingAutoConfiguration.WebSocketMessageConverterConfiguration configuration = new WebSocketMessagingAutoConfiguration.WebSocketMessageConverterConfiguration(
-				new ObjectMapper(),
-				Map.of(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME, expectedExecutor));
-		configuration.configureClientOutboundChannel(registration);
-		assertThat(registration).extracting("executor").isEqualTo(expectedExecutor);
+		this.context.getBean(WebSocketMessagingAutoConfiguration.WebSocketMessageConverterConfiguration.class)
+			.configureClientOutboundChannel(registration);
+		assertThat(registration).extracting("executor").isNull();
+	}
+
+	@Test
+	void applicationTaskExecutorIsSelectedForInboundChannel() {
+		this.context.register(WebSocketMessagingConfiguration.class);
+		this.context.registerBean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME,
+				SimpleAsyncTaskExecutor.class);
+		this.context.registerBean("customExecutor", SimpleAsyncTaskExecutor.class);
+		this.context.refresh();
+		ChannelRegistration registration = new ChannelRegistration();
+		this.context.getBean(WebSocketMessagingAutoConfiguration.WebSocketMessageConverterConfiguration.class)
+			.configureClientInboundChannel(registration);
+		assertThat(registration).extracting("executor")
+			.isEqualTo(this.context.getBean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME));
+	}
+
+	@Test
+	void applicationTaskExecutorIsSelectedForOutboundChannel() {
+		this.context.register(WebSocketMessagingConfiguration.class);
+		this.context.registerBean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME,
+				SimpleAsyncTaskExecutor.class);
+		this.context.registerBean("customExecutor", SimpleAsyncTaskExecutor.class);
+		this.context.refresh();
+		ChannelRegistration registration = new ChannelRegistration();
+		this.context.getBean(WebSocketMessagingAutoConfiguration.WebSocketMessageConverterConfiguration.class)
+			.configureClientOutboundChannel(registration);
+		assertThat(registration).extracting("executor")
+			.isEqualTo(this.context.getBean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME));
 	}
 
 	@Test
@@ -186,9 +212,8 @@ class WebSocketMessagingAutoConfigurationTests {
 
 	private List<MessageConverter> getCustomizedConverters() {
 		List<MessageConverter> customizedConverters = new ArrayList<>();
-		WebSocketMessagingAutoConfiguration.WebSocketMessageConverterConfiguration configuration = new WebSocketMessagingAutoConfiguration.WebSocketMessageConverterConfiguration(
-				new ObjectMapper(), Collections.emptyMap());
-		configuration.configureMessageConverters(customizedConverters);
+		this.context.getBean(WebSocketMessagingAutoConfiguration.WebSocketMessageConverterConfiguration.class)
+			.configureMessageConverters(customizedConverters);
 		return customizedConverters;
 	}
 
