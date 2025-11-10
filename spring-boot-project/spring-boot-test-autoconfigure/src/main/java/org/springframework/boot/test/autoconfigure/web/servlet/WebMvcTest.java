@@ -56,8 +56,8 @@ import org.springframework.test.web.servlet.MockMvc;
  * <li>{@code Converter}</li>
  * <li>{@code DelegatingFilterProxyRegistrationBean}</li>
  * <li>{@code ErrorAttributes}</li>
- * <li>{@code Filter}</li>
  * <li>{@code FilterRegistrationBean}</li>
+ * <li>{@code Filter}</li>
  * <li>{@code GenericConverter}</li>
  * <li>{@code HandlerInterceptor}</li>
  * <li>{@code HandlerMethodArgumentResolver}</li>
@@ -68,6 +68,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * <li>{@code WebMvcConfigurer}</li>
  * <li>{@code WebMvcRegistrations}</li>
  * <li>{@code WebSecurityConfigurer}</li>
+ * <li>{@code WebSecurityCustomizer}</li>
  * </ul>
  * <p>
  * By default, tests annotated with {@code @WebMvcTest} will also auto-configure Spring

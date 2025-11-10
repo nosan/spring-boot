@@ -29,6 +29,8 @@ import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.security.config.annotation.web.builders.WebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
@@ -64,6 +66,7 @@ class WebMvcTypeExcludeFilterTests {
 		assertThat(excludes(filter, ExampleHandlerInterceptor.class)).isFalse();
 		assertThat(excludes(filter, ExampleModule.class)).isFalse();
 		assertThat(excludes(filter, ExampleDialect.class)).isFalse();
+		assertThat(excludes(filter, ExampleWebSecurityCustomizer.class)).isFalse();
 	}
 
 	@Test
@@ -81,6 +84,7 @@ class WebMvcTypeExcludeFilterTests {
 		assertThat(excludes(filter, ExampleHandlerInterceptor.class)).isFalse();
 		assertThat(excludes(filter, ExampleModule.class)).isFalse();
 		assertThat(excludes(filter, ExampleDialect.class)).isFalse();
+		assertThat(excludes(filter, ExampleWebSecurityCustomizer.class)).isFalse();
 	}
 
 	@Test
@@ -98,6 +102,7 @@ class WebMvcTypeExcludeFilterTests {
 		assertThat(excludes(filter, ExampleHandlerInterceptor.class)).isTrue();
 		assertThat(excludes(filter, ExampleModule.class)).isTrue();
 		assertThat(excludes(filter, ExampleDialect.class)).isTrue();
+		assertThat(excludes(filter, ExampleWebSecurityCustomizer.class)).isTrue();
 	}
 
 	@Test
@@ -114,6 +119,7 @@ class WebMvcTypeExcludeFilterTests {
 		assertThat(excludes(filter, ExampleHandlerInterceptor.class)).isFalse();
 		assertThat(excludes(filter, ExampleModule.class)).isFalse();
 		assertThat(excludes(filter, ExampleDialect.class)).isFalse();
+		assertThat(excludes(filter, ExampleWebSecurityCustomizer.class)).isFalse();
 	}
 
 	@Test
@@ -131,6 +137,7 @@ class WebMvcTypeExcludeFilterTests {
 		assertThat(excludes(filter, ExampleHandlerInterceptor.class)).isFalse();
 		assertThat(excludes(filter, ExampleModule.class)).isFalse();
 		assertThat(excludes(filter, ExampleDialect.class)).isFalse();
+		assertThat(excludes(filter, ExampleWebSecurityCustomizer.class)).isFalse();
 	}
 
 	private boolean excludes(WebMvcTypeExcludeFilter filter, Class<?> type) throws IOException {
@@ -213,6 +220,15 @@ class WebMvcTypeExcludeFilterTests {
 		@Override
 		public String getName() {
 			return "example";
+		}
+
+	}
+
+	static class ExampleWebSecurityCustomizer implements WebSecurityCustomizer {
+
+		@Override
+		public void customize(WebSecurity web) {
+
 		}
 
 	}
