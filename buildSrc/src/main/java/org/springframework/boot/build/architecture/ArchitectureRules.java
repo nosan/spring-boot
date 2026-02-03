@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
@@ -30,7 +31,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.AccessTarget;
 import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitCallTarget;
+import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaAnnotation;
 import com.tngtech.archunit.core.domain.JavaCall;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -111,6 +114,9 @@ final class ArchitectureRules {
 		rules.add(autoConfigurationClassesShouldBePublicAndFinal());
 		rules.add(autoConfigurationClassesShouldHaveNoPublicMembers());
 		rules.add(testAutoConfigurationClassesShouldBePackagePrivateAndFinal());
+		rules.add(allConstructorsThatHaveProtectedModifierMustNotBeDeclaredInFinalClass());
+		rules.add(allMethodsThatHaveProtectedModifierMustNotBeDeclaredInFinalClass());
+		rules.add(allFieldsThatHaveProtectedModifierMustNotBeDeclaredInFinalClass());
 		return List.copyOf(rules);
 	}
 
@@ -173,6 +179,111 @@ final class ArchitectureRules {
 			.should()
 			.beAnnotatedWith(CheckReturnValue.class)
 			.allowEmptyShould(true);
+	}
+
+	static ArchRule allConstructorsThatHaveProtectedModifierMustNotBeDeclaredInFinalClass() {
+		return ArchRuleDefinition.noConstructors()
+			.that()
+			.areProtected()
+			.and(areNotDefaultConstructors())
+			.should()
+			.beDeclaredInClassesThat(isFinalClass())
+			.allowEmptyShould(true);
+	}
+
+	static ArchRule allFieldsThatHaveProtectedModifierMustNotBeDeclaredInFinalClass() {
+		return ArchRuleDefinition.noFields()
+			.that()
+			.areProtected()
+			.should()
+			.beDeclaredInClassesThat(isFinalClass())
+			.allowEmptyShould(true);
+	}
+
+	static ArchRule allMethodsThatHaveProtectedModifierMustNotBeDeclaredInFinalClass() {
+		return ArchRuleDefinition.noMethods()
+			.that()
+			.areProtected()
+			.and(DescribedPredicate.not(isBridgeOrSyntheticMethod()))
+			.and(DescribedPredicate.doNot(isOverridingMethodInSuperclass()))
+			.should()
+			.beDeclaredInClassesThat(isFinalClass())
+			.allowEmptyShould(true);
+	}
+
+	private static DescribedPredicate<? super JavaMethod> isOverridingMethodInSuperclass() {
+		return DescribedPredicate.describe("override method in super class", (method) -> {
+			JavaClass owner = method.getOwner();
+			for (JavaClass clazz : owner.getAllRawSuperclasses()) {
+				if (doesOverrideMethodInClass(method, clazz)) {
+					return true;
+				}
+			}
+			return false;
+		});
+	}
+
+	private static DescribedPredicate<JavaMethod> isBridgeOrSyntheticMethod() {
+		return DescribedPredicate.describe("bridge or synthetic",
+				(method) -> method.getModifiers().contains(JavaModifier.BRIDGE)
+						|| method.getModifiers().contains(JavaModifier.SYNTHETIC));
+	}
+
+	private static boolean doesOverrideMethodInClass(JavaMethod candidate, JavaClass clazz) {
+		if (candidate.getOwner().equals(clazz)) {
+			return false;
+		}
+		if (candidate.getModifiers().contains(JavaModifier.PRIVATE)
+				|| candidate.getModifiers().contains(JavaModifier.STATIC)) {
+			return false;
+		}
+		Optional<JavaMethod> tryGetMethod = clazz.tryGetMethod(candidate.getName(),
+				candidate.getRawParameterTypes().stream().map(JavaClass::getName).toArray(String[]::new));
+		if (tryGetMethod.isPresent()) {
+			JavaMethod method = tryGetMethod.get();
+			if (method.getModifiers().contains(JavaModifier.PRIVATE)
+					|| method.getModifiers().contains(JavaModifier.STATIC)) {
+				return false;
+			}
+			if (method.getModifiers().contains(JavaModifier.PUBLIC)) {
+				return candidate.getModifiers().contains(JavaModifier.PUBLIC);
+			}
+			if (method.getModifiers().contains(JavaModifier.PROTECTED)) {
+				return candidate.getModifiers().contains(JavaModifier.PUBLIC)
+						|| candidate.getModifiers().contains(JavaModifier.PROTECTED);
+			}
+			return candidate.getOwner().getPackageName().equals(clazz.getPackageName());
+		}
+		for (JavaMethod method : candidate.getOwner().getMethods()) {
+			if (isMethodBridgeFor(method, candidate)) {
+				return doesOverrideMethodInClass(method, clazz);
+			}
+		}
+		return false;
+	}
+
+	private static boolean isMethodBridgeFor(JavaMethod method, JavaMethod candidate) {
+		if (!method.getName().equals(candidate.getName())) {
+			return false;
+		}
+		if (!method.getModifiers().contains(JavaModifier.BRIDGE)) {
+			return false;
+		}
+		if (method.getParameters().size() != candidate.getParameters().size()) {
+			return false;
+		}
+		return method.getCallsFromSelf()
+			.stream()
+			.map(JavaAccess::getTarget)
+			.map(AccessTarget::resolveMember)
+			.filter(Optional::isPresent)
+			.map(Optional::get)
+			.anyMatch(candidate::equals);
+	}
+
+	private static DescribedPredicate<? super JavaClass> isFinalClass() {
+		return DescribedPredicate.describe("have final modifier",
+				(javaClass) -> javaClass.getModifiers().contains(JavaModifier.FINAL));
 	}
 
 	private static DescribedPredicate<JavaMethod> doNotReturnSelfType() {
