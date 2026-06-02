@@ -25,13 +25,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.LoggerFactory;
 
-import org.springframework.boot.SpringApplication;
+import org.springframework.beans.BeansException;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionEvaluationReport;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.event.ApplicationFailedEvent;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.web.context.servlet.AnnotationConfigServletWebApplicationContext;
@@ -61,18 +60,30 @@ class ConditionEvaluationReportLoggingListenerTests {
 		this.initializer.initialize(context);
 		context.register(Config.class);
 		withDebugLogging(context::refresh);
-		assertThat(output).contains("CONDITIONS EVALUATION REPORT");
+		assertThat(output).containsOnlyOnce("CONDITIONS EVALUATION REPORT");
 	}
 
 	@Test
-	void logsDebugOnApplicationFailedEvent(CapturedOutput output) {
+	void logsDebugOnApplicationCustomOnRefreshFailed(CapturedOutput output) {
+		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext() {
+			@Override
+			protected void onRefresh() throws BeansException {
+				throw new RuntimeException("WebServer failed to start");
+			}
+		};
+		this.initializer.initialize(context);
+		context.register(Config.class);
+		withDebugLogging(() -> assertThatException().isThrownBy(context::refresh));
+		assertThat(output).containsOnlyOnce("CONDITIONS EVALUATION REPORT");
+	}
+
+	@Test
+	void logsDebugOnApplicationFailed(CapturedOutput output) {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
 		this.initializer.initialize(context);
 		context.register(ErrorConfig.class);
-		assertThatException().isThrownBy(context::refresh)
-			.satisfies((ex) -> withDebugLogging(() -> context
-				.publishEvent(new ApplicationFailedEvent(new SpringApplication(), new String[0], context, ex))));
-		assertThat(output).contains("CONDITIONS EVALUATION REPORT");
+		withDebugLogging(() -> assertThatException().isThrownBy(context::refresh));
+		assertThat(output).containsOnlyOnce("CONDITIONS EVALUATION REPORT");
 	}
 
 	@Test
@@ -80,11 +91,9 @@ class ConditionEvaluationReportLoggingListenerTests {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
 		this.initializer.initialize(context);
 		context.register(ErrorConfig.class);
-		assertThatException().isThrownBy(context::refresh)
-			.satisfies((ex) -> withInfoLogging(() -> context
-				.publishEvent(new ApplicationFailedEvent(new SpringApplication(), new String[0], context, ex))));
+		withInfoLogging(() -> assertThatException().isThrownBy(context::refresh));
 		assertThat(output).doesNotContain("CONDITIONS EVALUATION REPORT")
-			.contains("re-run your application with 'debug' enabled");
+			.containsOnlyOnce("re-run your application with 'debug' enabled");
 	}
 
 	@Test

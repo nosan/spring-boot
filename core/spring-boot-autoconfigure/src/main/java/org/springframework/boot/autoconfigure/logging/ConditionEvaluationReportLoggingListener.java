@@ -16,21 +16,17 @@
 
 package org.springframework.boot.autoconfigure.logging;
 
-import java.util.function.Supplier;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.jspecify.annotations.Nullable;
-
+import org.springframework.beans.factory.config.DestructionAwareBeanPostProcessor;
 import org.springframework.boot.autoconfigure.condition.ConditionEvaluationReport;
-import org.springframework.boot.context.event.ApplicationFailedEvent;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.context.ApplicationContextInitializer;
-import org.springframework.context.ApplicationEvent;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigUtils;
 import org.springframework.context.event.ContextRefreshedEvent;
-import org.springframework.context.event.GenericApplicationListener;
 import org.springframework.context.support.GenericApplicationContext;
-import org.springframework.core.Ordered;
-import org.springframework.core.ResolvableType;
 import org.springframework.util.Assert;
 
 /**
@@ -80,66 +76,48 @@ public class ConditionEvaluationReportLoggingListener
 	}
 
 	@Override
-	public void initialize(ConfigurableApplicationContext applicationContext) {
-		applicationContext.addApplicationListener(new ConditionEvaluationReportListener(applicationContext));
+	public void initialize(ConfigurableApplicationContext context) {
+		ConditionEvaluationReportListener listener = new ConditionEvaluationReportListener(context, this.logLevel);
+		context.addApplicationListener(listener);
+		context.getBeanFactory().addBeanPostProcessor((DestructionAwareBeanPostProcessor) (bean, beanName) -> {
+			if (AnnotationConfigUtils.CONFIGURATION_ANNOTATION_PROCESSOR_BEAN_NAME.equals(beanName)) {
+				listener.logReport(true);
+			}
+		});
 	}
 
-	private final class ConditionEvaluationReportListener implements GenericApplicationListener {
+	private static final class ConditionEvaluationReportListener implements ApplicationListener<ContextRefreshedEvent> {
 
 		private final ConfigurableApplicationContext context;
 
 		private final ConditionEvaluationReportLogger logger;
 
-		private ConditionEvaluationReportListener(ConfigurableApplicationContext context) {
+		private final AtomicBoolean alreadyLogged = new AtomicBoolean(false);
+
+		private ConditionEvaluationReportListener(ConfigurableApplicationContext context, LogLevel logLevel) {
 			this.context = context;
-			Supplier<ConditionEvaluationReport> reportSupplier;
 			if (context instanceof GenericApplicationContext) {
 				// Get the report early when the context allows early access to the bean
 				// factory in case the context subsequently fails to load
-				ConditionEvaluationReport report = getReport();
-				reportSupplier = () -> report;
+				ConditionEvaluationReport report = ConditionEvaluationReport.get(context.getBeanFactory());
+				this.logger = new ConditionEvaluationReportLogger(logLevel, () -> report);
 			}
 			else {
-				reportSupplier = this::getReport;
+				this.logger = new ConditionEvaluationReportLogger(logLevel,
+						() -> ConditionEvaluationReport.get(context.getBeanFactory()));
 			}
-			this.logger = new ConditionEvaluationReportLogger(ConditionEvaluationReportLoggingListener.this.logLevel,
-					reportSupplier);
-		}
-
-		private ConditionEvaluationReport getReport() {
-			return ConditionEvaluationReport.get(this.context.getBeanFactory());
 		}
 
 		@Override
-		public int getOrder() {
-			return Ordered.LOWEST_PRECEDENCE;
-		}
-
-		@Override
-		public boolean supportsEventType(ResolvableType resolvableType) {
-			Class<?> type = resolvableType.getRawClass();
-			if (type == null) {
-				return false;
+		public void onApplicationEvent(ContextRefreshedEvent event) {
+			if (event.getApplicationContext() == this.context) {
+				logReport(false);
 			}
-			return ContextRefreshedEvent.class.isAssignableFrom(type)
-					|| ApplicationFailedEvent.class.isAssignableFrom(type);
 		}
 
-		@Override
-		public boolean supportsSourceType(@Nullable Class<?> sourceType) {
-			return true;
-		}
-
-		@Override
-		public void onApplicationEvent(ApplicationEvent event) {
-			if (event instanceof ContextRefreshedEvent contextRefreshedEvent) {
-				if (contextRefreshedEvent.getApplicationContext() == this.context) {
-					this.logger.logReport(false);
-				}
-			}
-			else if (event instanceof ApplicationFailedEvent applicationFailedEvent
-					&& applicationFailedEvent.getApplicationContext() == this.context) {
-				this.logger.logReport(true);
+		private void logReport(boolean isCrashReport) {
+			if (this.alreadyLogged.compareAndSet(false, true)) {
+				this.logger.logReport(isCrashReport);
 			}
 		}
 
