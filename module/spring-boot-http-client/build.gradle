@@ -34,6 +34,7 @@ dependencies {
 	optional(project(":module:spring-boot-micrometer-metrics"))
 	optional(project(":module:spring-boot-reactor-netty"))
 	optional("org.apache.httpcomponents.client5:httpclient5")
+	optional("org.apache.httpcomponents.client5:httpclient5-observation")
 	optional("org.apache.httpcomponents.core5:httpcore5-reactive")
 	optional("org.eclipse.jetty:jetty-client")
 	optional("org.eclipse.jetty:jetty-reactive-httpclient")
